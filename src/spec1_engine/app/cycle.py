@@ -14,6 +14,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
+load_dotenv()  # loads .env from cwd if present
+
 from spec1_engine.core.ids import run_id as new_run_id
 from spec1_engine.core.logging_utils import configure_root, get_logger
 from spec1_engine.schemas.models import (

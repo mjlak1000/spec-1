@@ -118,6 +118,7 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
+        print("[briefing] ANTHROPIC_API_KEY not set in environment — returning fallback brief")
         logger.warning("ANTHROPIC_API_KEY not set — returning fallback brief")
         return _fallback_brief(cycle_stats)
 
@@ -135,5 +136,6 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
         logger.info("Brief generated — %d words", len(brief.split()))
         return brief
     except Exception as exc:
+        print(f"[briefing] API call failed: {type(exc).__name__}: {exc}")
         logger.error("Brief generation failed: %s", exc)
         return _fallback_brief(cycle_stats)
