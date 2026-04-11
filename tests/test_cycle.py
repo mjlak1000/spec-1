@@ -163,8 +163,8 @@ def test_default_feeds_includes_rand():
     assert "rand" in DEFAULT_FEEDS
 
 
-def test_default_feeds_includes_lawfare():
-    assert "lawfare" in DEFAULT_FEEDS
+def test_default_feeds_includes_just_security():
+    assert "just_security" in DEFAULT_FEEDS
 
 
 def test_default_feeds_includes_cipher_brief():

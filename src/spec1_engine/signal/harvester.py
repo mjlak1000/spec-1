@@ -7,23 +7,41 @@ Sources: War on the Rocks, Cipher Brief, Lawfare, RAND, Atlantic Council, Defens
 from __future__ import annotations
 
 import hashlib
+import re
+import ssl
+import urllib.request
 from datetime import datetime, timezone
 from typing import Iterator, Optional
 
 import feedparser
+import requests
 
 from spec1_engine.schemas.models import Signal
 
 DEFAULT_FEEDS: dict[str, str] = {
     "war_on_the_rocks": "https://warontherocks.com/feed/",
     "cipher_brief": "https://www.thecipherbrief.com/feed",
-    "lawfare": "https://www.lawfaremedia.org/feed",
+    "just_security": "https://www.justsecurity.org/feed/",
     "rand": "https://www.rand.org/blog.xml",
     "atlantic_council": "https://www.atlanticcouncil.org/feed/",
     "defense_one": "https://www.defenseone.com/rss/all/",
 }
 
 TIMEOUT = 15
+_HEADERS = {"User-Agent": "spec1-engine/0.2"}
+
+# Sources that need SSL verification disabled (cert chain issues on this host)
+_SSL_UNVERIFIED = {"cipher_brief"}
+
+# Sources whose feeds contain stray invalid XML characters that need scrubbing
+_SANITIZE_XML: set[str] = set()
+
+# Regex matching XML-illegal control characters (except tab/LF/CR)
+_ILLEGAL_XML_RE = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f"
+    r"\ud800-\udfff"
+    r"\ufffe\uffff]"
+)
 
 
 def _make_signal_id(url: str, title: str) -> str:
@@ -35,14 +53,12 @@ def _parse_date(entry: feedparser.FeedParserDict) -> datetime:
     """Extract published datetime from a feedparser entry."""
     if hasattr(entry, "published_parsed") and entry.published_parsed:
         try:
-            import time
             t = entry.published_parsed
             return datetime(*t[:6], tzinfo=timezone.utc)
         except Exception:
             pass
     if hasattr(entry, "updated_parsed") and entry.updated_parsed:
         try:
-            import time
             t = entry.updated_parsed
             return datetime(*t[:6], tzinfo=timezone.utc)
         except Exception:
@@ -75,6 +91,48 @@ def _get_author(entry: feedparser.FeedParserDict) -> str:
     return ""
 
 
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+}
+
+
+def _fetch_raw_sanitized(url: str, timeout: int) -> bytes:
+    """Fetch URL with requests, strip illegal XML control chars, return bytes."""
+    resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=timeout, verify=True)
+    resp.raise_for_status()
+    text = resp.text
+    text = _ILLEGAL_XML_RE.sub("", text)
+    return text.encode("utf-8")
+
+
+def _fetch_raw_no_ssl(url: str, timeout: int) -> bytes:
+    """Fetch URL ignoring SSL verification errors, return raw bytes."""
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    req = urllib.request.Request(url, headers=_HEADERS)
+    with urllib.request.urlopen(req, context=ctx, timeout=timeout) as resp:
+        return resp.read()
+
+
+def _parse_feed(name: str, url: str, timeout: int) -> feedparser.FeedParserDict:
+    """Return a feedparser result, applying source-specific workarounds."""
+    if name in _SSL_UNVERIFIED:
+        raw = _fetch_raw_no_ssl(url, timeout)
+        return feedparser.parse(raw)
+
+    if name in _SANITIZE_XML:
+        raw = _fetch_raw_sanitized(url, timeout)
+        return feedparser.parse(raw)
+
+    return feedparser.parse(url, request_headers=_HEADERS)
+
+
 def fetch_feed(
     name: str,
     url: str,
@@ -83,7 +141,7 @@ def fetch_feed(
     timeout: int = TIMEOUT,
 ) -> Iterator[Signal]:
     """Fetch a single RSS feed and yield Signal instances."""
-    parsed = feedparser.parse(url, request_headers={"User-Agent": "spec1-engine/0.2"})
+    parsed = _parse_feed(name, url, timeout)
 
     if parsed.get("bozo") and not parsed.get("entries"):
         bozo_exc = parsed.get("bozo_exception")
