@@ -308,7 +308,7 @@ def test_verify_produces_outcome(sample_opportunity, sample_signal, sample_parse
     if sample_opportunity is None:
         pytest.skip("Signal did not create opportunity")
     inv = generate_investigation(sample_opportunity, sample_signal, sample_parsed)
-    outcome = verify_investigation(inv, sample_signal, sample_parsed)
+    outcome = verify_investigation(inv)
     assert isinstance(outcome, Outcome)
 
 
@@ -316,7 +316,7 @@ def test_verify_outcome_has_evidence(sample_opportunity, sample_signal, sample_p
     if sample_opportunity is None:
         pytest.skip("Signal did not create opportunity")
     inv = generate_investigation(sample_opportunity, sample_signal, sample_parsed)
-    outcome = verify_investigation(inv, sample_signal, sample_parsed)
+    outcome = verify_investigation(inv)
     assert len(outcome.evidence) > 0
 
 
@@ -324,7 +324,7 @@ def test_outcome_to_dict(sample_opportunity, sample_signal, sample_parsed):
     if sample_opportunity is None:
         pytest.skip("Signal did not create opportunity")
     inv = generate_investigation(sample_opportunity, sample_signal, sample_parsed)
-    outcome = verify_investigation(inv, sample_signal, sample_parsed)
+    outcome = verify_investigation(inv)
     d = outcome.to_dict()
     assert "outcome_id" in d
     assert "classification" in d

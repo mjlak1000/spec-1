@@ -164,7 +164,7 @@ def run_cycle(
             stats["investigations_generated"] += 1
 
             # Step 5: Verify
-            outcome = verify_investigation(inv, sig, ps)
+            outcome = verify_investigation(inv)
             stats["outcomes_verified"] += 1
 
             # Step 6: Analyze

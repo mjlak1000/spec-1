@@ -137,7 +137,7 @@ class Engine:
                 inv = generate_investigation(opp, sig, ps)
                 stats.investigations_generated += 1
 
-                outcome = verify_investigation(inv, sig, ps)
+                outcome = verify_investigation(inv)
                 stats.outcomes_verified += 1
 
                 record = analyze(opp, inv, outcome, sig)

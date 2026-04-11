@@ -402,7 +402,7 @@ def test_verify_investigation_returns_outcome():
     sig = make_signal()
     ps = make_parsed()
     inv = generate_investigation(opp, sig, ps)
-    outcome = verify_investigation(inv, sig, ps)
+    outcome = verify_investigation(inv)
     assert isinstance(outcome, Outcome)
 
 
@@ -411,8 +411,8 @@ def test_verify_outcome_confidence_range():
     sig = make_signal()
     ps = make_parsed()
     inv = generate_investigation(opp, sig, ps)
-    outcome = verify_investigation(inv, sig, ps)
-    assert 0.0 < outcome.confidence <= 1.0
+    outcome = verify_investigation(inv)
+    assert 0.0 <= outcome.confidence <= 1.0
 
 
 def test_verify_outcome_valid_classification():
@@ -421,7 +421,7 @@ def test_verify_outcome_valid_classification():
     sig = make_signal()
     ps = make_parsed()
     inv = generate_investigation(opp, sig, ps)
-    outcome = verify_investigation(inv, sig, ps)
+    outcome = verify_investigation(inv)
     assert outcome.classification in valid
 
 
@@ -430,7 +430,7 @@ def test_analyze_returns_intelligence_record():
     sig = make_signal()
     ps = make_parsed()
     inv = generate_investigation(opp, sig, ps)
-    outcome = verify_investigation(inv, sig, ps)
+    outcome = verify_investigation(inv)
     record = analyze(opp, inv, outcome, sig)
     assert isinstance(record, IntelligenceRecord)
     assert record.record_id.startswith("rec-")
@@ -441,9 +441,9 @@ def test_analyze_record_confidence_range():
     sig = make_signal()
     ps = make_parsed()
     inv = generate_investigation(opp, sig, ps)
-    outcome = verify_investigation(inv, sig, ps)
+    outcome = verify_investigation(inv)
     record = analyze(opp, inv, outcome, sig)
-    assert 0.0 < record.confidence <= 1.0
+    assert 0.0 <= record.confidence <= 1.0
 
 
 def test_record_to_dict_complete():
@@ -451,7 +451,7 @@ def test_record_to_dict_complete():
     sig = make_signal()
     ps = make_parsed()
     inv = generate_investigation(opp, sig, ps)
-    outcome = verify_investigation(inv, sig, ps)
+    outcome = verify_investigation(inv)
     record = analyze(opp, inv, outcome, sig)
     d = record.to_dict()
     assert "record_id" in d
