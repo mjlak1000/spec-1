@@ -13,6 +13,13 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=4.9",
     "python-dateutil>=2.8",
+    "python-dotenv>=1.0",
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
+    "apscheduler>=3.10",
+    "anthropic>=0.20",
+    "pandas>=2.0",
+    "yfinance>=0.2",
 ]
 
 [project.optional-dependencies]
