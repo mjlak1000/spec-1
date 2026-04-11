@@ -1,0 +1,7 @@
+feedparser>=6.0
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=4.9
+python-dateutil>=2.8
+pytest>=7.4
+pytest-cov
