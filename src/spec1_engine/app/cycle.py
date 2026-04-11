@@ -165,6 +165,7 @@ def run_cycle(
         print(f"[7/7] Writing to JSONL store: {store_path}\n")
 
     records_stored = 0
+    stored_records: list[dict] = []
     for sig, ps, opp in opportunities:
         try:
             # Step 4: Generate investigation
@@ -179,12 +180,13 @@ def run_cycle(
             record = analyze(opp, inv, outcome, sig)
 
             # Step 7: Store
-            stored = store.append({
+            record_dict = {
                 **record.to_dict(),
                 "run_id": run_id,
                 "signal_id": sig.signal_id,
                 "signal_source": sig.source,
                 "signal_url": sig.url,
+                "environment": environment,
                 "opportunity_id": opp.opportunity_id,
                 "opportunity_score": opp.score,
                 "opportunity_priority": opp.priority,
@@ -193,7 +195,9 @@ def run_cycle(
                 "hypothesis": inv.hypothesis,
                 "outcome_classification": outcome.classification,
                 "outcome_confidence": outcome.confidence,
-            })
+            }
+            store.append(record_dict)
+            stored_records.append(record_dict)
             records_stored += 1
 
             if verbose:
@@ -215,6 +219,23 @@ def run_cycle(
     last_run_state["timestamp"] = stats["finished_at"]
     last_run_state["signal_count"] = stats["signals_harvested"]
     last_run_state["record_count"] = records_stored
+
+    # ── Briefing ──────────────────────────────────────────────────────────────
+    try:
+        from spec1_engine.briefing.generator import generate_brief
+        from spec1_engine.briefing.writer import write_brief
+        if verbose:
+            print(f"\n[Briefing] Generating daily intelligence brief...")
+        brief_md = generate_brief(stored_records, stats)
+        brief_path = write_brief(brief_md, run_id, stats["finished_at"])
+        brief_word_count = len(brief_md.split())
+        stats["brief_path"] = brief_path
+        stats["brief_word_count"] = brief_word_count
+        if verbose:
+            print(f"  Brief written: {brief_path} ({brief_word_count} words)")
+    except Exception as exc:
+        logger.error("Briefing step failed: %s", exc)
+        stats["errors"].append(f"briefing:{exc}")
 
     if verbose:
         print(f"\n{'='*60}")

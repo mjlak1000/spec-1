@@ -7,11 +7,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+import json
+
+from fastapi import APIRouter, HTTPException, Query
 
 from spec1_engine.core.ids import run_id as new_run_id
 from spec1_engine.api.scheduler import KILL_FILE
 from spec1_engine.intelligence.store import JsonlStore
+import spec1_engine.briefing.writer as _brief_writer
 
 router = APIRouter()
 
@@ -80,6 +83,53 @@ def intelligence_latest(
     store = JsonlStore(STORE_PATH)
     all_records = store.read_all()
     return all_records[-limit:]
+
+
+# ── Brief ─────────────────────────────────────────────────────────────────────
+
+@router.get("/brief/latest")
+def brief_latest() -> dict:
+    """Return the most recently generated intelligence brief."""
+    briefs_dir = _brief_writer.BRIEFS_DIR
+    latest = briefs_dir / "spec1_brief_latest.md"
+    if not latest.exists():
+        raise HTTPException(status_code=404, detail="No brief generated yet.")
+    brief_text = latest.read_text(encoding="utf-8")
+    index_path = briefs_dir / "brief_index.jsonl"
+    run_id_val, generated_at = None, None
+    if index_path.exists():
+        lines = [l.strip() for l in index_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if lines:
+            last = json.loads(lines[-1])
+            run_id_val = last.get("run_id")
+            generated_at = last.get("timestamp")
+    return {"brief": brief_text, "run_id": run_id_val, "generated_at": generated_at}
+
+
+@router.get("/brief/index")
+def brief_index() -> list[dict]:
+    """Return brief index metadata, newest first."""
+    index_path = _brief_writer.BRIEFS_DIR / "brief_index.jsonl"
+    if not index_path.exists():
+        return []
+    entries = []
+    for line in index_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return list(reversed(entries))
+
+
+@router.get("/brief/{date}")
+def brief_by_date(date: str) -> dict:
+    """Return the brief for a specific date (YYYY-MM-DD)."""
+    brief_path = _brief_writer.BRIEFS_DIR / f"spec1_brief_{date}.md"
+    if not brief_path.exists():
+        raise HTTPException(status_code=404, detail=f"No brief found for {date}.")
+    return {"brief": brief_path.read_text(encoding="utf-8"), "date": date}
 
 
 # ── Kill switch ───────────────────────────────────────────────────────────────
