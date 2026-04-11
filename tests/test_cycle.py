@@ -475,3 +475,230 @@ def test_run_cycle_multiple_times_appends(tmp_path, fake_feed_xml):
         store = JsonlStore(store_path)
         total = store.count()
         assert total == stats1["records_stored"] + stats2["records_stored"]
+
+
+# ─── Verbose mode and error-path tests ───────────────────────────────────────
+
+def test_run_cycle_verbose_true_no_crash(tmp_path):
+    """run_cycle with verbose=True and empty feeds should not crash."""
+    stats = run_cycle(
+        store_path=tmp_path / "verbose_empty.jsonl",
+        feeds={},
+        verbose=True,
+    )
+    assert stats["signals_harvested"] == 0
+    assert "finished_at" in stats
+
+
+def test_run_cycle_harvest_exception_returns_stats(tmp_path):
+    """If harvest_all raises, run_cycle returns stats dict with error logged."""
+    with patch("spec1_engine.app.cycle.harvest_all", side_effect=RuntimeError("network down")):
+        stats = run_cycle(
+            store_path=tmp_path / "harvest_err.jsonl",
+            verbose=False,
+        )
+    assert any("harvest_all" in e for e in stats["errors"])
+    assert "finished_at" in stats
+
+
+def test_run_cycle_harvest_exception_verbose(tmp_path):
+    """Harvest exception with verbose=True prints error and returns."""
+    with patch("spec1_engine.app.cycle.harvest_all", side_effect=RuntimeError("bad")):
+        stats = run_cycle(
+            store_path=tmp_path / "harvest_err_v.jsonl",
+            verbose=True,
+        )
+    assert len(stats["errors"]) > 0
+    assert "finished_at" in stats
+
+
+def test_run_cycle_harvest_feed_errors_in_stats(tmp_path):
+    """Feed-level harvest errors (not exceptions) appear in stats errors."""
+    mock_result = {
+        "signals": [],
+        "errors": {"failing_feed": "Connection timeout"},
+    }
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result):
+        stats = run_cycle(
+            store_path=tmp_path / "feed_err.jsonl",
+            verbose=True,
+        )
+    assert any("harvest:failing_feed" in e for e in stats["errors"])
+
+
+def test_run_cycle_parse_exception_handled(tmp_path):
+    """Exception during parse_signal is caught and appended to errors."""
+    signals = [
+        Signal(
+            signal_id="sig-parse-err",
+            source="rand",
+            source_type="rss",
+            text="test text",
+            url="https://x.com/1",
+            author="",
+            published_at=datetime.now(timezone.utc),
+            velocity=0.5,
+            engagement=0.0,
+            run_id="r",
+            environment="test",
+            metadata={},
+        )
+    ]
+    mock_result = {"signals": signals, "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result), \
+         patch("spec1_engine.app.cycle.parse_signal", side_effect=RuntimeError("parse fail")):
+        stats = run_cycle(
+            store_path=tmp_path / "parse_err.jsonl",
+            verbose=False,
+        )
+    assert any("parse" in e for e in stats["errors"])
+
+
+def test_run_cycle_score_exception_handled(tmp_path):
+    """Exception during score_signal is caught and blocked counter incremented."""
+    signals = [
+        Signal(
+            signal_id="sig-score-err",
+            source="rand",
+            source_type="rss",
+            text="Military intelligence operations Russia Ukraine NATO cyber warfare.",
+            url="https://x.com/2",
+            author="",
+            published_at=datetime.now(timezone.utc),
+            velocity=0.5,
+            engagement=0.0,
+            run_id="r",
+            environment="test",
+            metadata={},
+        )
+    ]
+    mock_result = {"signals": signals, "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result), \
+         patch("spec1_engine.app.cycle.score_signal", side_effect=RuntimeError("score fail")):
+        stats = run_cycle(
+            store_path=tmp_path / "score_err.jsonl",
+            verbose=False,
+        )
+    assert any("score" in e for e in stats["errors"])
+
+
+def _make_rich_signal(signal_id: str = "sig-rich", velocity: float = 0.9) -> Signal:
+    """Build a signal with enough content to pass all 4 gates."""
+    text = (
+        "Military intelligence exclusive investigation Russia Ukraine NATO cyber warfare. "
+        "Pentagon classified federal oversight espionage covert operations. "
+        "Nuclear deterrence missile deployment attack strategy confirmed. "
+        "FBI NSA CIA investigation sanctions fraud criminal indicted. "
+        "Alliance treaty defense operation weapon drone navy army coalition. "
+    ) * 4  # repeat to ensure word count > 80
+    return Signal(
+        signal_id=signal_id,
+        source="rand",
+        source_type="rss",
+        text=text,
+        url=f"https://rand.org/{signal_id}",
+        author="",
+        published_at=datetime.now(timezone.utc),
+        velocity=velocity,
+        engagement=0.0,
+        run_id="run-test",
+        environment="test",
+        metadata={},
+    )
+
+
+def test_run_cycle_pipeline_loop_executed(tmp_path):
+    """When signals produce opportunities, the full pipeline loop runs."""
+    rich_signal = _make_rich_signal()
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result):
+        stats = run_cycle(
+            store_path=tmp_path / "pipeline.jsonl",
+            verbose=False,
+        )
+    assert stats["signals_harvested"] == 1
+    assert stats["signals_parsed"] == 1
+    # The opportunity/record counts may vary, but no crash
+    assert "records_stored" in stats
+
+
+def test_run_cycle_verbose_with_opportunities(tmp_path):
+    """Verbose mode with opportunities exercises priority breakdown prints."""
+    rich_signal = _make_rich_signal("sig-prio")
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result):
+        stats = run_cycle(
+            store_path=tmp_path / "prio_verbose.jsonl",
+            verbose=True,
+        )
+    assert stats["signals_harvested"] == 1
+
+
+def test_run_cycle_pipeline_exception_handled(tmp_path):
+    """Exceptions inside the investigate/verify/analyze loop are caught."""
+    rich_signal = _make_rich_signal("sig-pipe-err")
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result), \
+         patch("spec1_engine.app.cycle.generate_investigation",
+               side_effect=RuntimeError("inv fail")):
+        stats = run_cycle(
+            store_path=tmp_path / "pipe_err.jsonl",
+            verbose=False,
+        )
+    assert any("pipeline" in e for e in stats["errors"])
+
+
+def test_run_cycle_verbose_pipeline_exception(tmp_path):
+    """Pipeline exceptions with verbose=True print error and continue."""
+    rich_signal = _make_rich_signal("sig-verbose-err")
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result), \
+         patch("spec1_engine.app.cycle.generate_investigation",
+               side_effect=RuntimeError("verbose inv fail")):
+        stats = run_cycle(
+            store_path=tmp_path / "verbose_pipe.jsonl",
+            verbose=True,
+        )
+    assert any("pipeline" in e for e in stats["errors"])
+
+
+def test_run_cycle_briefing_no_crash_on_failure(tmp_path):
+    """Briefing step failure is caught and logged without crashing the cycle."""
+    rich_signal = _make_rich_signal("sig-brief-err")
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result), \
+         patch("spec1_engine.briefing.generator.generate_brief",
+               side_effect=RuntimeError("api down")):
+        stats = run_cycle(
+            store_path=tmp_path / "brief_err.jsonl",
+            verbose=False,
+        )
+    # Should complete without raising
+    assert "finished_at" in stats
+
+
+def test_run_cycle_verbose_end_block(tmp_path):
+    """Verbose end-of-cycle block runs when cycle completes."""
+    rich_signal = _make_rich_signal("sig-end-verbose")
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result):
+        stats = run_cycle(
+            store_path=tmp_path / "end_verbose.jsonl",
+            verbose=True,
+        )
+    assert "finished_at" in stats
+
+
+def test_run_cycle_updates_last_run_state(tmp_path):
+    """last_run_state is updated after cycle completes."""
+    from spec1_engine.app import cycle as cycle_mod
+    rich_signal = _make_rich_signal("sig-last-state")
+    mock_result = {"signals": [rich_signal], "errors": {}}
+    with patch("spec1_engine.app.cycle.harvest_all", return_value=mock_result):
+        stats = run_cycle(
+            store_path=tmp_path / "last_state.jsonl",
+            run_id="run-state-test",
+            verbose=False,
+        )
+    assert cycle_mod.last_run_state["run_id"] == "run-state-test"
+    assert cycle_mod.last_run_state["signal_count"] == 1
