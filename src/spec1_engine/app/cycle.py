@@ -37,6 +37,14 @@ logger = get_logger(__name__)
 
 DEFAULT_STORE_PATH = Path("spec1_intelligence.jsonl")
 
+# Module-level state updated after every completed cycle — read by API routes.
+last_run_state: dict = {
+    "run_id": None,
+    "timestamp": None,
+    "signal_count": 0,
+    "record_count": 0,
+}
+
 
 def run_cycle(
     store_path: Path = DEFAULT_STORE_PATH,
@@ -201,6 +209,12 @@ def run_cycle(
 
     stats["records_stored"] = records_stored
     stats["finished_at"] = datetime.now(timezone.utc).isoformat()
+
+    # Update module-level state for API consumption
+    last_run_state["run_id"] = run_id
+    last_run_state["timestamp"] = stats["finished_at"]
+    last_run_state["signal_count"] = stats["signals_harvested"]
+    last_run_state["record_count"] = records_stored
 
     if verbose:
         print(f"\n{'='*60}")
