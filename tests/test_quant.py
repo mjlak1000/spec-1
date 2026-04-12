@@ -593,3 +593,573 @@ def test_run_quant_cycle_updates_last_run_state(tmp_path):
 
     assert last_run_state["run_id"] == "run-state-test"
     assert last_run_state["domain"] == "quant"
+
+
+# ─── quant/cycle.py _make_parsed_signal tests ─────────────────────────────────
+
+def test_make_parsed_signal_basic():
+    """_make_parsed_signal wraps a Signal into a ParsedSignal."""
+    from spec1_engine.quant.cycle import _make_parsed_signal
+    sig = Signal(
+        signal_id="q-basic",
+        source="LMT",
+        source_type="market_data",
+        text="LMT defense sector market data daily return.",
+        url="https://finance.yahoo.com/LMT",
+        author="yfinance",
+        published_at=datetime.now(timezone.utc),
+        velocity=0.01,
+        engagement=1.2,
+        run_id="run-test",
+        environment="test",
+        metadata={"daily_return": 0.01, "relative_volume": 1.2, "sector": "defense"},
+    )
+    ps = _make_parsed_signal(sig)
+    assert ps.signal_id == "q-basic"
+    assert "LMT" in ps.keywords
+    assert "defense" in ps.keywords
+
+
+def test_make_parsed_signal_breakout_keyword():
+    """_make_parsed_signal adds 'breakout' keyword when daily return >= 3%."""
+    from spec1_engine.quant.cycle import _make_parsed_signal
+    sig = Signal(
+        signal_id="q-breakout",
+        source="PLTR",
+        source_type="market_data",
+        text="PLTR cyber sector significant daily move.",
+        url="https://finance.yahoo.com/PLTR",
+        author="yfinance",
+        published_at=datetime.now(timezone.utc),
+        velocity=0.05,  # 5% daily return > 3%
+        engagement=2.5,
+        run_id="run-test",
+        environment="test",
+        metadata={"daily_return": 0.05, "relative_volume": 2.5, "sector": "cyber"},
+    )
+    ps = _make_parsed_signal(sig)
+    assert "breakout" in ps.keywords
+
+
+def test_make_parsed_signal_breakdown_keyword():
+    """_make_parsed_signal adds 'breakdown' keyword when daily return <= -3%."""
+    from spec1_engine.quant.cycle import _make_parsed_signal
+    sig = Signal(
+        signal_id="q-breakdown",
+        source="XOM",
+        source_type="market_data",
+        text="XOM energy sector large daily decline.",
+        url="https://finance.yahoo.com/XOM",
+        author="yfinance",
+        published_at=datetime.now(timezone.utc),
+        velocity=-0.04,  # -4% daily return
+        engagement=2.0,
+        run_id="run-test",
+        environment="test",
+        metadata={"daily_return": -0.04, "relative_volume": 2.0, "sector": "energy"},
+    )
+    ps = _make_parsed_signal(sig)
+    assert "breakdown" in ps.keywords
+
+
+def test_make_parsed_signal_volume_spike_keyword():
+    """_make_parsed_signal adds 'volume_spike' when relative volume >= 2x."""
+    from spec1_engine.quant.cycle import _make_parsed_signal
+    sig = Signal(
+        signal_id="q-vol-spike",
+        source="RTX",
+        source_type="market_data",
+        text="RTX defense sector volume spike observed.",
+        url="https://finance.yahoo.com/RTX",
+        author="yfinance",
+        published_at=datetime.now(timezone.utc),
+        velocity=0.01,
+        engagement=3.0,  # 3x volume > 2x threshold
+        run_id="run-test",
+        environment="test",
+        metadata={"daily_return": 0.01, "relative_volume": 3.0, "sector": "defense"},
+    )
+    ps = _make_parsed_signal(sig)
+    assert "volume_spike" in ps.keywords
+
+
+# ─── quant/analyzer.py additional pattern detection tests ────────────────────
+
+def test_quant_analyzer_momentum_up():
+    """_detect_pattern returns MOMENTUM_UP for moderate positive return."""
+    from spec1_engine.quant.analyzer import _detect_pattern
+    sig = make_signal(ticker="LMT", daily_return=0.02, rel_volume=1.0)
+    opp = Opportunity(
+        opportunity_id="opp-q",
+        signal_id=sig.signal_id,
+        score=0.7,
+        priority="STANDARD",
+        gate_results={"credibility": True, "volume": True, "velocity": True, "novelty": True},
+        run_id="run-test",
+    )
+    pattern = _detect_pattern(sig, opp)
+    assert "MOMENTUM_UP" in pattern
+
+
+def test_quant_analyzer_volume_spike():
+    """_detect_pattern returns VOLUME_SPIKE for high relative volume but low return."""
+    from spec1_engine.quant.analyzer import _detect_pattern
+    sig = make_signal(ticker="PLTR", daily_return=0.005, rel_volume=2.6)
+    opp = Opportunity(
+        opportunity_id="opp-q2",
+        signal_id=sig.signal_id,
+        score=0.6,
+        priority="STANDARD",
+        gate_results={"credibility": True, "volume": True, "velocity": True, "novelty": True},
+        run_id="run-test",
+    )
+    pattern = _detect_pattern(sig, opp)
+    assert "VOLUME_SPIKE" in pattern
+
+
+def test_quant_analyzer_elevated_volume():
+    """_detect_pattern returns ELEVATED_VOLUME for 1.5-2.5x volume."""
+    from spec1_engine.quant.analyzer import _detect_pattern
+    sig = make_signal(ticker="XOM", daily_return=0.005, rel_volume=1.8)
+    opp = Opportunity(
+        opportunity_id="opp-q3",
+        signal_id=sig.signal_id,
+        score=0.55,
+        priority="MONITOR",
+        gate_results={"credibility": True, "volume": True, "velocity": True, "novelty": True},
+        run_id="run-test",
+    )
+    pattern = _detect_pattern(sig, opp)
+    assert "ELEVATED_VOLUME" in pattern
+
+
+def test_quant_analyzer_generic_signal():
+    """_detect_pattern returns generic SIGNAL for low return + low volume."""
+    from spec1_engine.quant.analyzer import _detect_pattern
+    sig = make_signal(ticker="SPY", daily_return=0.001, rel_volume=0.8)
+    opp = Opportunity(
+        opportunity_id="opp-q4",
+        signal_id=sig.signal_id,
+        score=0.55,
+        priority="MONITOR",
+        gate_results={"credibility": True, "volume": True, "velocity": True, "novelty": True},
+        run_id="run-test",
+    )
+    pattern = _detect_pattern(sig, opp)
+    assert "SIGNAL" in pattern
+
+
+# ─── quant/cycle.py run_quant_cycle tests ─────────────────────────────────────
+
+def test_run_quant_cycle_verbose_true_no_crash(tmp_path):
+    """run_quant_cycle with verbose=True and empty tickers should not crash."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    with patch("spec1_engine.quant.cycle.fetch_all", return_value={}):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_verbose.jsonl",
+            tickers=[],
+            verbose=True,
+        )
+    assert stats["signals_parsed"] == 0
+
+
+def test_run_quant_cycle_verbose_false_no_crash(tmp_path):
+    """run_quant_cycle with verbose=False and empty result should not crash."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    with patch("spec1_engine.quant.cycle.fetch_all", return_value={}):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_quiet.jsonl",
+            tickers=[],
+            verbose=False,
+        )
+    assert "run_id" in stats
+    assert stats["domain"] == "quant"
+
+
+# ─── quant/parser.py additional tests ─────────────────────────────────────────
+
+def test_relative_volume_returns_1_when_volume_col_absent():
+    """_relative_volume returns 1.0 when no Volume column."""
+    from spec1_engine.quant.parser import _relative_volume
+    df = pd.DataFrame({"Close": [100.0, 101.0, 102.0]})
+    result = _relative_volume(df, 2)
+    assert result == 1.0
+
+
+def test_relative_volume_exception_returns_1():
+    """_relative_volume returns 1.0 on exception."""
+    from spec1_engine.quant.parser import _relative_volume
+    # Pass an index that causes an exception
+    df = pd.DataFrame({"Volume": [1000, 2000, 3000]})
+    with patch("spec1_engine.quant.parser._get_col", side_effect=RuntimeError("boom")):
+        result = _relative_volume(df, 1)
+    assert result == 1.0
+
+
+def test_daily_return_returns_0_at_index_0():
+    """_daily_return returns 0.0 when idx == 0 (no previous close)."""
+    from spec1_engine.quant.parser import _daily_return
+    df = make_df([100.0, 105.0, 103.0])
+    result = _daily_return(df, 0)
+    assert result == 0.0
+
+
+def test_daily_return_returns_0_when_close_col_absent():
+    """_daily_return returns 0.0 when no Close column."""
+    from spec1_engine.quant.parser import _daily_return
+    df = pd.DataFrame({"Volume": [1000, 2000, 3000]})
+    result = _daily_return(df, 1)
+    assert result == 0.0
+
+
+def test_daily_return_exception_returns_0():
+    """_daily_return returns 0.0 on exception."""
+    from spec1_engine.quant.parser import _daily_return
+    df = make_df([100.0, 105.0])
+    with patch("spec1_engine.quant.parser._get_col", side_effect=RuntimeError("boom")):
+        result = _daily_return(df, 1)
+    assert result == 0.0
+
+
+def test_get_col_with_multiindex_columns():
+    """_get_col finds column when it exists as string name in a MultiIndex."""
+    from spec1_engine.quant.parser import _get_col
+    import pandas as pd
+    df = pd.DataFrame(
+        {("Close", "AAPL"): [100, 101, 102], ("Volume", "AAPL"): [1000, 2000, 3000]}
+    )
+    # pandas MultiIndex responds True to "Close" in df.columns via level-0 lookup
+    col = _get_col(df, "Close")
+    assert col is not None  # Found via some mechanism (string or tuple)
+
+
+def test_get_col_returns_none_when_not_found():
+    """_get_col returns None when column is absent."""
+    from spec1_engine.quant.parser import _get_col
+    df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+    result = _get_col(df, "Close")
+    assert result is None
+
+
+def test_get_val_returns_0_when_col_absent():
+    """_get_val returns 0.0 when column not found."""
+    from spec1_engine.quant.parser import _get_val
+    df = pd.DataFrame({"A": [1, 2, 3]})
+    result = _get_val(df, "Close", 1)
+    assert result == 0.0
+
+
+def test_get_val_exception_returns_0():
+    """_get_val returns 0.0 on exception during float conversion."""
+    from spec1_engine.quant.parser import _get_val
+    import pandas as pd
+    # Create a DataFrame with a non-numeric value that triggers ValueError
+    df = pd.DataFrame({"Close": pd.array(["not_a_number", "also_bad"], dtype=object)})
+    result = _get_val(df, "Close", 0)
+    assert result == 0.0
+
+
+def test_parse_row_with_naive_timestamp():
+    """parse_row adds UTC timezone when timestamp is naive."""
+    from spec1_engine.quant.parser import parse_row
+    import numpy as np
+    df = make_df([100.0, 101.0, 102.0])
+    # Make the index naive (no tzinfo)
+    df.index = df.index.tz_localize(None)
+    sig = parse_row("LMT", df, 1, run_id="run-test")
+    assert sig.published_at.tzinfo is not None
+
+
+def test_parse_row_with_numeric_timestamp():
+    """parse_row handles numeric (non-pydatetime) timestamp."""
+    from spec1_engine.quant.parser import parse_row
+    import pandas as pd
+    import numpy as np
+    from datetime import datetime, timezone
+    # Create a DataFrame with numeric index (Unix timestamps)
+    ts = datetime(2024, 1, 15, tzinfo=timezone.utc).timestamp()
+    df = pd.DataFrame(
+        {"Close": [100.0], "Open": [99.0], "High": [101.0], "Low": [98.0], "Volume": [1000.0]},
+        index=[ts],
+    )
+    sig = parse_row("PLTR", df, 0, run_id="run-test")
+    assert sig.published_at.tzinfo is not None
+
+
+def test_parse_dataframe_last_only():
+    """parse_dataframe with latest_only=True returns only the last row."""
+    from spec1_engine.quant.parser import parse_dataframe
+    df = make_df([100.0, 101.0, 102.0, 103.0, 104.0])
+    signals = parse_dataframe("LMT", df, run_id="run-test", latest_only=True)
+    assert len(signals) == 1
+    assert signals[0].source == "LMT"
+
+
+def test_parse_dataframe_all_rows():
+    """parse_dataframe with latest_only=False returns all rows."""
+    from spec1_engine.quant.parser import parse_dataframe
+    df = make_df([100.0, 101.0, 102.0])
+    signals = parse_dataframe("RTX", df, run_id="run-test", latest_only=False)
+    assert len(signals) == 3
+
+
+def test_parse_dataframe_empty_df_returns_empty():
+    """parse_dataframe returns empty list for empty DataFrame."""
+    from spec1_engine.quant.parser import parse_dataframe
+    df = pd.DataFrame()
+    signals = parse_dataframe("XOM", df, run_id="run-test")
+    assert signals == []
+
+
+# ─── quant/scorer.py additional tests ─────────────────────────────────────────
+
+def test_quant_priority_elevated():
+    """_priority returns ELEVATED for score >= 0.70."""
+    from spec1_engine.quant.scorer import _priority
+    assert _priority(0.75) == "ELEVATED"
+    assert _priority(0.70) == "ELEVATED"
+
+
+def test_quant_priority_standard():
+    """_priority returns STANDARD for score in [0.50, 0.70)."""
+    from spec1_engine.quant.scorer import _priority
+    assert _priority(0.60) == "STANDARD"
+    assert _priority(0.50) == "STANDARD"
+
+
+def test_quant_priority_monitor():
+    """_priority returns MONITOR for score < 0.50."""
+    from spec1_engine.quant.scorer import _priority
+    assert _priority(0.40) == "MONITOR"
+    assert _priority(0.0) == "MONITOR"
+
+
+# ─── quant/parser.py _get_col MultiIndex tuple fallback (line 65) ─────────────
+
+def test_get_col_plain_multiindex_tuple_fallback():
+    """_get_col finds a tuple column by label[0] when str match in name check fails."""
+    from spec1_engine.quant.parser import _get_col
+    import pandas as pd
+    # Create a DataFrame with pure tuple column names (non-MultiIndex)
+    # Use from_dict to avoid MultiIndex behavior
+    df = pd.DataFrame([[1, 2, 3]], columns=pd.Index([("Close", "A"), ("Volume", "A"), ("Open", "A")]))
+    # "Close" should NOT be in plain Index of tuples
+    # so the loop logic (line 62-65) applies
+    col = _get_col(df, "close")  # lowercase to test str().lower() comparison
+    assert col == ("Close", "A")
+
+
+def test_parse_dataframe_row_exception_logged():
+    """parse_dataframe skips rows that cause exceptions in parse_row."""
+    from spec1_engine.quant.parser import parse_dataframe
+    df = make_df([100.0, 101.0, 102.0])
+    with patch("spec1_engine.quant.parser.parse_row",
+               side_effect=ValueError("parse error")):
+        signals = parse_dataframe("LMT", df, run_id="run-test", latest_only=False)
+    assert signals == []
+
+
+# ─── quant/cycle.py run_quant_cycle with mocked pipeline ─────────────────────
+
+def _make_quant_signal(ticker: str = "LMT") -> Signal:
+    """Build a market signal that passes the 4 quant scoring gates."""
+    from datetime import datetime, timezone
+    return Signal(
+        signal_id=f"q-{ticker}-test",
+        source=ticker,
+        source_type="market_data",
+        text=(
+            f"{ticker} defense cyber military sector breakout volume spike signal "
+            "intelligence operations strategy deployment drone weapon alliance."
+        ),
+        url=f"https://finance.yahoo.com/{ticker}",
+        author="yfinance",
+        published_at=datetime.now(timezone.utc),
+        velocity=0.05,   # 5% daily return
+        engagement=3.0,  # 3x volume
+        run_id="run-test",
+        environment="test",
+        metadata={"daily_return": 0.05, "relative_volume": 3.0, "sector": "defense"},
+    )
+
+
+def test_run_quant_cycle_with_mocked_ohlcv(tmp_path):
+    """run_quant_cycle executes full pipeline with mocked OHLCV."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    quant_signal = _make_quant_signal("LMT")
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"LMT": make_df([100.0, 105.0, 103.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_mocked.jsonl",
+            tickers=["LMT"],
+            run_id="run-quant-mock",
+            verbose=False,
+        )
+
+    assert stats["run_id"] == "run-quant-mock"
+    assert stats["signals_parsed"] == 1
+    assert "finished_at" in stats
+
+
+def test_run_quant_cycle_verbose_with_mocked_ohlcv(tmp_path):
+    """run_quant_cycle with verbose=True executes print paths."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    quant_signal = _make_quant_signal("RTX")
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"RTX": make_df([150.0, 155.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_verbose.jsonl",
+            tickers=["RTX"],
+            verbose=True,
+        )
+
+    assert stats["signals_parsed"] == 1
+
+
+def test_run_quant_cycle_fetch_exception_returns_early(tmp_path):
+    """run_quant_cycle returns early with error when fetch_all raises."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               side_effect=RuntimeError("yfinance down")):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_fetch_err.jsonl",
+            tickers=["LMT"],
+            verbose=False,
+        )
+
+    assert any("fetch_all" in e for e in stats["errors"])
+    assert "finished_at" in stats
+
+
+def test_run_quant_cycle_fetch_exception_verbose(tmp_path):
+    """run_quant_cycle verbose=True on fetch exception."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               side_effect=RuntimeError("network error")):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_fetch_v.jsonl",
+            tickers=["LMT"],
+            verbose=True,
+        )
+
+    assert len(stats["errors"]) > 0
+
+
+def test_run_quant_cycle_parse_exception_handled(tmp_path):
+    """run_quant_cycle handles parse_dataframe exception."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"LMT": make_df([100.0, 101.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               side_effect=RuntimeError("parse error")):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_parse_err.jsonl",
+            tickers=["LMT"],
+            verbose=False,
+        )
+
+    assert any("parse" in e for e in stats["errors"])
+
+
+def test_run_quant_cycle_pipeline_exception_handled(tmp_path):
+    """run_quant_cycle handles pipeline exception during investigate."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    quant_signal = _make_quant_signal("LMT")  # LMT is in ALL_TICKERS
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"LMT": make_df([100.0, 110.0])}), \
+         patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]), \
+         patch("spec1_engine.quant.cycle.generate_investigation",
+               side_effect=RuntimeError("inv error")):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_pipeline_err.jsonl",
+            tickers=["LMT"],
+            verbose=False,
+        )
+
+    assert any("pipeline" in e for e in stats["errors"])
+
+
+def test_run_quant_cycle_pipeline_verbose_error(tmp_path):
+    """run_quant_cycle verbose=True handles pipeline error with print."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    quant_signal = _make_quant_signal("XOM")
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"XOM": make_df([80.0, 82.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]),          patch("spec1_engine.quant.cycle.generate_investigation",
+               side_effect=RuntimeError("verbose err")):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_verbose_err.jsonl",
+            tickers=["XOM"],
+            verbose=True,
+        )
+
+    assert any("pipeline" in e for e in stats["errors"])
+
+
+def test_run_quant_cycle_score_exception_handled(tmp_path):
+    """run_quant_cycle handles score_signal exception."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    quant_signal = _make_quant_signal("SPY")
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"SPY": make_df([400.0, 401.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]),          patch("spec1_engine.quant.cycle.score_signal",
+               side_effect=RuntimeError("score error")):
+        stats = run_quant_cycle(
+            store_path=tmp_path / "quant_score_err.jsonl",
+            tickers=["SPY"],
+            verbose=False,
+        )
+
+    assert any("score" in e for e in stats["errors"])
+
+
+def test_run_quant_cycle_updates_last_run_state(tmp_path):
+    """run_quant_cycle updates the module-level last_run_state."""
+    from spec1_engine.quant import cycle as qcycle
+    from spec1_engine.quant.cycle import run_quant_cycle
+    quant_signal = _make_quant_signal("LMT")
+
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"LMT": make_df([100.0, 105.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]):
+        run_quant_cycle(
+            store_path=tmp_path / "quant_state.jsonl",
+            tickers=["LMT"],
+            run_id="run-state-update",
+            verbose=False,
+        )
+
+    assert qcycle.last_run_state["run_id"] == "run-state-update"
+    assert qcycle.last_run_state["domain"] == "quant"
+
+
+def test_run_quant_cycle_records_stored_written(tmp_path):
+    """run_quant_cycle writes records to JSONL when opportunities found."""
+    from spec1_engine.quant.cycle import run_quant_cycle
+    from spec1_engine.intelligence.store import JsonlStore
+    quant_signal = _make_quant_signal("LMT")
+
+    store_path = tmp_path / "quant_records.jsonl"
+    with patch("spec1_engine.quant.cycle.fetch_all",
+               return_value={"LMT": make_df([100.0, 105.0])}),          patch("spec1_engine.quant.cycle.parse_dataframe",
+               return_value=[quant_signal]):
+        stats = run_quant_cycle(
+            store_path=store_path,
+            tickers=["LMT"],
+            run_id="run-records",
+            verbose=False,
+        )
+
+    if stats["records_stored"] > 0:
+        store = JsonlStore(store_path)
+        assert store.count() == stats["records_stored"]

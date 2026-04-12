@@ -501,3 +501,20 @@ def test_brief_index_returns_newest_first(api_client, tmp_path):
     data = r.json()
     assert data[0]["run_id"] == "run-3"
     assert data[-1]["run_id"] == "run-1"
+
+
+# ─── writer.py invalid timestamp fallback test ────────────────────────────────
+
+def test_write_brief_invalid_timestamp_falls_back_to_today(tmp_path):
+    """write_brief falls back to today's date when timestamp is invalid."""
+    from spec1_engine.briefing import writer
+    from datetime import datetime, timezone
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs_inv_ts"
+    try:
+        path = writer.write_brief(SAMPLE_BRIEF, "run-001", "NOT-A-VALID-TIMESTAMP")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        assert today in path
+        assert Path(path).exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
