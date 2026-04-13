@@ -17,6 +17,8 @@ from typing import Optional
 from dotenv import load_dotenv
 load_dotenv()  # loads .env from cwd if present
 
+from collections import Counter
+
 from spec1_engine.core.ids import run_id as new_run_id
 from spec1_engine.core.logging_utils import configure_root, get_logger
 from spec1_engine.schemas.models import (
@@ -47,6 +49,50 @@ last_run_state: dict = {
     "signal_count": 0,
     "record_count": 0,
 }
+
+
+def _build_psyop_signal(
+    signals: list[Signal],
+    parsed_signals: list[ParsedSignal],
+) -> dict:
+    """Aggregate harvested signals into a psyop signal dict for scoring.
+
+    Derives each required field from the collected signal batch:
+    - topic: most common keyword across all parsed signals
+    - entities: deduplicated union of parsed entities (up to 20)
+    - sources: unique source names from signals
+    - narrative_markets: same as sources (each distinct feed = one media market)
+    - fara_matches: empty list — hook for future FARA integration
+    - legislation_matches: empty list — hook for future legislation integration
+    - consensus_velocity: average velocity across signals (proxy for rapid consensus)
+    - origin_traceable: True — RSS sources have verifiable origin by default
+    """
+    all_keywords: list[str] = []
+    all_entities: list[str] = []
+    all_sources: list[str] = []
+    velocities: list[float] = []
+
+    for sig, ps in zip(signals, parsed_signals):
+        all_sources.append(sig.source)
+        all_entities.extend(ps.entities[:5])
+        all_keywords.extend(ps.keywords[:5])
+        velocities.append(float(sig.velocity))
+
+    topic_counts = Counter(all_keywords)
+    topic = topic_counts.most_common(1)[0][0] if topic_counts else "unknown"
+    unique_sources = list(dict.fromkeys(all_sources))  # preserve insertion order, dedupe
+    avg_velocity = sum(velocities) / len(velocities) if velocities else 0.0
+
+    return {
+        "topic": topic,
+        "entities": list(dict.fromkeys(all_entities))[:20],
+        "sources": unique_sources,
+        "fara_matches": [],        # Hook: populate from FARA API integration
+        "legislation_matches": [], # Hook: populate from model-legislation DB
+        "narrative_markets": unique_sources,
+        "consensus_velocity": avg_velocity,
+        "origin_traceable": True,  # RSS sources are traceable by default
+    }
 
 
 def run_cycle(
@@ -132,6 +178,32 @@ def run_cycle(
     stats["signals_parsed"] = len(parsed_signals)
     if verbose:
         print(f"      Parsed {len(parsed_signals)} signals")
+
+    # ── Psyop scoring — runs after collection, before brief assembly ──────────
+    if verbose:
+        print(f"\n[Psyop] Scoring signal batch for influence-operation patterns...")
+    try:
+        from spec1_engine.cls_psyop.scorer import score_psyop
+        psyop_signal = _build_psyop_signal(signals, parsed_signals)
+        psyop_result = score_psyop(
+            psyop_signal,
+            run_id=run_id,
+            store_path=Path("data/psyop_signals.jsonl"),
+        )
+        stats["psyop_score"] = psyop_result["score"]
+        stats["psyop_classification"] = psyop_result["classification"]
+        stats["psyop_patterns_fired"] = psyop_result["patterns_fired"]
+        if verbose:
+            print(
+                f"      score={psyop_result['score']} "
+                f"class={psyop_result['classification']} "
+                f"patterns={psyop_result['patterns_fired'] or '(none)'}"
+            )
+    except Exception as exc:
+        logger.error("Psyop scoring step failed: %s", exc)
+        stats["errors"].append(f"psyop:{exc}")
+        if verbose:
+            print(f"      [WARN] Psyop scoring failed: {exc}")
 
     # ── Step 3: Score — 4 gates ───────────────────────────────────────────────
     if verbose:

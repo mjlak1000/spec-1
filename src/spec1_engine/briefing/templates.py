@@ -32,6 +32,9 @@ DOMAIN BREAKDOWN:
 Geopolitics: {geo_count} signals
 Cyber / Info Ops: {cyber_count} signals
 
+PSYOP ASSESSMENT:
+{psyop_assessment}
+
 Write the daily intelligence brief using this exact structure:
 
 ---
@@ -71,6 +74,13 @@ Low confidence leads are flagged, not dropped.]
 
 ### Watch List — Tomorrow
 [3-5 specific things to monitor. Tied to today's signals. One line each.]
+
+### Psyop Assessment
+[Summarise the psyop scoring result from today's cycle. State the classification \
+(NOISE / PSYOP_CANDIDATE / PSYOP_CONFIRMED), the score, and which patterns fired. \
+If the score is NOISE, say so in one sentence. If PSYOP_CANDIDATE or PSYOP_CONFIRMED, \
+describe what each fired pattern indicates and the investigative priority. \
+If the assessment was not run, say so.]
 
 ### Signal Notes
 [Brief methodological note: source gaps, gate failure patterns, \
