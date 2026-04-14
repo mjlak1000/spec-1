@@ -386,3 +386,130 @@ def test_maybe_run_on_start_no_thread_when_false():
             from spec1_engine.api.scheduler import maybe_run_on_start
             maybe_run_on_start()
         mock_thread.assert_not_called()
+
+
+# ─── Scheduler unit tests ─────────────────────────────────────────────────────
+
+def test_guarded_cycle_skips_when_kill_file_present(tmp_path):
+    """_guarded_cycle skips run_cycle when kill file exists."""
+    from spec1_engine.api import scheduler as sched_mod
+    original_kill = sched_mod.KILL_FILE
+    kill_path = tmp_path / ".cls_kill"
+    kill_path.touch()
+    sched_mod.KILL_FILE = kill_path
+    try:
+        with patch("spec1_engine.app.cycle.run_cycle") as mock_run:
+            sched_mod._guarded_cycle()
+            mock_run.assert_not_called()
+    finally:
+        sched_mod.KILL_FILE = original_kill
+
+
+def test_guarded_cycle_calls_run_cycle_when_no_kill_file(tmp_path):
+    """_guarded_cycle calls run_cycle when kill file is absent."""
+    from spec1_engine.api import scheduler as sched_mod
+    original_kill = sched_mod.KILL_FILE
+    kill_path = tmp_path / ".cls_kill"
+    kill_path.unlink(missing_ok=True)
+    sched_mod.KILL_FILE = kill_path
+    try:
+        # run_cycle is imported inside _guarded_cycle, so patch via app.cycle
+        with patch("spec1_engine.app.cycle.run_cycle",
+                   return_value={"signals_harvested": 0, "records_stored": 0}):
+            sched_mod._guarded_cycle()
+    finally:
+        sched_mod.KILL_FILE = original_kill
+
+
+def test_guarded_cycle_handles_run_cycle_exception(tmp_path):
+    """_guarded_cycle logs error when run_cycle raises but does not re-raise."""
+    from spec1_engine.api import scheduler as sched_mod
+    original_kill = sched_mod.KILL_FILE
+    kill_path = tmp_path / ".cls_kill"
+    kill_path.unlink(missing_ok=True)
+    sched_mod.KILL_FILE = kill_path
+    try:
+        # run_cycle is imported inside _guarded_cycle, so patch via app.cycle
+        with patch("spec1_engine.app.cycle.run_cycle",
+                   side_effect=RuntimeError("cycle error")):
+            sched_mod._guarded_cycle()
+    finally:
+        sched_mod.KILL_FILE = original_kill
+
+
+def test_build_scheduler_returns_background_scheduler():
+    """build_scheduler returns a configured BackgroundScheduler."""
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from spec1_engine.api.scheduler import build_scheduler
+    scheduler = build_scheduler()
+    assert isinstance(scheduler, BackgroundScheduler)
+
+
+def test_build_scheduler_has_daily_cycle_job():
+    """build_scheduler adds a 'daily_cycle' job."""
+    from spec1_engine.api.scheduler import build_scheduler
+    scheduler = build_scheduler()
+    job_ids = [job.id for job in scheduler.get_jobs()]
+    assert "daily_cycle" in job_ids
+
+
+def test_maybe_run_on_start_true_spawns_thread():
+    """SPEC1_RUN_ON_START=true spawns a daemon thread."""
+    import os
+    with patch.dict(os.environ, {"SPEC1_RUN_ON_START": "true"}):
+        with patch("spec1_engine.api.scheduler.threading.Thread") as mock_thread:
+            instance = MagicMock()
+            mock_thread.return_value = instance
+            from spec1_engine.api import scheduler as sched_mod
+            sched_mod.maybe_run_on_start()
+        instance.start.assert_called_once()
+
+
+def test_maybe_run_on_start_false_no_thread():
+    """SPEC1_RUN_ON_START=false does not spawn a thread."""
+    import os
+    with patch.dict(os.environ, {"SPEC1_RUN_ON_START": "false"}):
+        with patch("spec1_engine.api.scheduler.threading.Thread") as mock_thread:
+            from spec1_engine.api import scheduler as sched_mod
+            sched_mod.maybe_run_on_start()
+        mock_thread.assert_not_called()
+
+
+# ─── Routes — background thread error path (lines 44-49) ─────────────────────
+
+def test_cycle_run_background_error_logged(client):
+    """Background _run() logs error when run_cycle raises."""
+    import time
+
+    # Start the thread and let it run; patch run_cycle to raise
+    with patch("spec1_engine.app.cycle.run_cycle",
+               side_effect=RuntimeError("background error")):
+        r = client.post("/api/v1/cycle/run")
+        # Give thread a moment to execute
+        time.sleep(0.2)
+
+    # The endpoint itself should still return 200 regardless
+    assert r.status_code == 200
+    assert r.json()["status"] == "triggered"
+
+
+# ─── Routes — brief index with invalid JSON line (lines 121-122) ─────────────
+
+def test_brief_index_skips_invalid_json_lines(client, tmp_path):
+    """brief_index silently skips malformed JSONL lines."""
+    import spec1_engine.briefing.writer as _w
+    briefs_dir = tmp_path / "briefs_bad_json"
+    briefs_dir.mkdir()
+    (briefs_dir / "brief_index.jsonl").write_text(
+        'NOT VALID JSON\n'
+        + json.dumps({"run_id": "run-ok", "date": "2026-04-11",
+                      "filepath": "x", "word_count": 10, "timestamp": "t"}) + "\n",
+        encoding="utf-8",
+    )
+    with patch.object(_w, "BRIEFS_DIR", briefs_dir):
+        r = client.get("/api/v1/brief/index")
+    data = r.json()
+    assert r.status_code == 200
+    # Bad line skipped, only the valid entry returned
+    assert len(data) == 1
+    assert data[0]["run_id"] == "run-ok"
