@@ -13,10 +13,19 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=4.9",
     "python-dateutil>=2.8",
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
+    "anthropic>=0.20",
+    "python-dotenv>=1.0",
+    "numpy>=1.25",
+    "pandas>=2.0",
+    "APScheduler>=3.10",
+    "yfinance>=0.2",
+    "httpx>=0.24",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4", "pytest-cov"]
+dev = ["pytest>=7.4", "pytest-cov", "pytest-anyio"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
