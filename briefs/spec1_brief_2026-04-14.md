@@ -1,3 +1,3 @@
 ## SPEC-1 DAILY BRIEF — 2026-04-14
 
-[Brief generation failed. Raw stats: {'run_id': 'run-state-test', 'started_at': '2026-04-14T03:06:15.434639+00:00', 'signals_harvested': 1, 'signals_parsed': 1, 'opportunities_found': 1, 'investigations_generated': 1, 'outcomes_verified': 1, 'records_stored': 1, 'errors': [], 'finished_at': '2026-04-14T03:06:15.435190+00:00'}]
+[Brief generation failed. Raw stats: {'run_id': 'run-state-test', 'started_at': '2026-04-14T03:07:20.145518+00:00', 'signals_harvested': 1, 'signals_parsed': 1, 'opportunities_found': 1, 'investigations_generated': 1, 'outcomes_verified': 1, 'records_stored': 1, 'errors': [], 'finished_at': '2026-04-14T03:07:20.146060+00:00'}]
