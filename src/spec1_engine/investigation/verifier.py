@@ -82,6 +82,17 @@ def verify_investigation(investigation: Investigation) -> Outcome:
             ],
         )
         raw = message.content[0].text.strip()
+        # Claude sometimes wraps the response in markdown fences despite the
+        # system prompt; strip them before parsing.
+        if raw.startswith("```"):
+            parts = raw.split("```")
+            # parts[0] is empty, parts[1] is "json\n{...}", parts[2] is ""
+            inner = parts[1] if len(parts) >= 2 else raw
+            if "\n" in inner:
+                tag, body = inner.split("\n", 1)
+                raw = body.strip() if tag.strip().isalpha() else inner.strip()
+            else:
+                raw = inner.strip()
     except Exception as exc:
         logger.error("Claude API call failed: %s", exc)
         return _fallback_outcome()

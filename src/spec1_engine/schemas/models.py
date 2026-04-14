@@ -165,3 +165,41 @@ class AnalystRecord:
             "domains": self.domains,
             "credibility_score": self.credibility_score,
         }
+
+
+@dataclass
+class CaseFile:
+    """Persistent investigation case that accumulates evidence across cycles."""
+
+    case_id: str
+    title: str
+    question: str
+    tags: list[str] = field(default_factory=list)
+    status: str = "OPEN"  # OPEN | CLOSED | WATCHING
+    opened_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+    signal_ids: list[str] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    research_runs: int = 0
+    confidence: float = 0.5
+    run_id: str = ""
+    environment: str = "osint"
+    metadata: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "case_id": self.case_id,
+            "title": self.title,
+            "question": self.question,
+            "tags": self.tags,
+            "status": self.status,
+            "opened_at": self.opened_at.isoformat() if isinstance(self.opened_at, datetime) else str(self.opened_at),
+            "updated_at": self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else str(self.updated_at),
+            "signal_ids": self.signal_ids,
+            "findings": self.findings,
+            "research_runs": self.research_runs,
+            "confidence": self.confidence,
+            "run_id": self.run_id,
+            "environment": self.environment,
+            "metadata": self.metadata,
+        }

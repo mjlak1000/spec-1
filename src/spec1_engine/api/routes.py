@@ -132,6 +132,107 @@ def brief_by_date(date: str) -> dict:
     return {"brief": brief_path.read_text(encoding="utf-8"), "date": date}
 
 
+# ── Workspace: Investigation Cases ───────────────────────────────────────────
+
+@router.post("/workspace/cases")
+def create_case(data: dict) -> dict:
+    """Create a new investigation case.
+
+    Body:
+    {
+        "title": "Case Title",
+        "question": "Investigation Question",
+        "tags": ["tag1", "tag2"]
+    }
+    """
+    try:
+        from spec1_engine.workspace.case import open_case
+        title = data.get("title")
+        question = data.get("question")
+        tags = data.get("tags", [])
+
+        if not title or not question:
+            raise ValueError("title and question are required")
+
+        case = open_case(title, question, tags)
+        return {
+            "case_id": case.case_id,
+            "title": case.title,
+            "question": case.question,
+            "status": case.status,
+            "opened_at": case.opened_at.isoformat(),
+            "tags": case.tags,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/workspace/cases")
+def list_cases_endpoint(status: str = None) -> dict:
+    """Get all cases, optionally filtered by status."""
+    try:
+        from spec1_engine.workspace.case import list_cases
+        cases = list_cases(status=status)
+        return {
+            "cases": [
+                {
+                    "case_id": c.case_id,
+                    "title": c.title,
+                    "status": c.status,
+                    "signals_matched": len(c.signal_ids),
+                    "findings": len(c.findings),
+                    "confidence": c.confidence,
+                }
+                for c in cases
+            ],
+            "count": len(cases),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/workspace/cases/{case_id}")
+def get_case_endpoint(case_id: str) -> dict:
+    """Get details for a specific case."""
+    try:
+        from spec1_engine.workspace.case import get_case
+        case = get_case(case_id)
+        return {
+            "case_id": case.case_id,
+            "title": case.title,
+            "question": case.question,
+            "status": case.status,
+            "tags": case.tags,
+            "opened_at": case.opened_at.isoformat(),
+            "updated_at": case.updated_at.isoformat(),
+            "signal_ids": case.signal_ids,
+            "findings": case.findings,
+            "research_runs": case.research_runs,
+            "confidence": case.confidence,
+        }
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/workspace/cases/{case_id}/close")
+def close_case_endpoint(case_id: str) -> dict:
+    """Close an investigation case and generate final report."""
+    try:
+        from spec1_engine.workspace.case import close_case
+        case = close_case(case_id)
+        return {
+            "case_id": case_id,
+            "status": "CLOSED",
+            "report_path": f"workspace/reports/report_{case_id}.md",
+        }
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Kill switch ───────────────────────────────────────────────────────────────
 
 @router.post("/kill")

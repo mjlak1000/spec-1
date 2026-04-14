@@ -303,7 +303,8 @@ def test_gate_credibility_unknown_ticker_blocked():
 def test_gate_volume_low_blocks():
     from spec1_engine.quant.scorer import score_signal, clear_seen
     clear_seen()
-    sig = make_signal("LMT", daily_return=0.02, rel_volume=0.9, run_id="run-s4")
+    # Gate 2 threshold is now 0.8; use 0.7 to fail the gate
+    sig = make_signal("LMT", daily_return=0.02, rel_volume=0.7, run_id="run-s4")
     opp = score_signal(sig, run_id="run-s4")
     assert opp is None
 
@@ -311,9 +312,13 @@ def test_gate_volume_low_blocks():
 def test_gate_velocity_low_blocks():
     from spec1_engine.quant.scorer import score_signal, clear_seen
     clear_seen()
+    # With new behavior: gates 1+2 pass, gate 3 fails → MONITOR tier (not None)
+    # Use low velocity (0.001 = 0.1%) and good volume (2.0)
     sig = make_signal("LMT", daily_return=0.001, rel_volume=2.0, run_id="run-s5")
     opp = score_signal(sig, run_id="run-s5")
-    assert opp is None
+    # Now returns MONITOR tier since gates 1+2 pass but gate 3 fails
+    assert opp is not None
+    assert opp.priority == "MONITOR"
 
 
 def test_gate_novelty_dedup_blocks_second():
