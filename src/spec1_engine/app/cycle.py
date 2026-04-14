@@ -1,7 +1,7 @@
 """SPEC-1 Full Pipeline Cycle.
 
 Implements and runs the full loop:
-  RSS fetch → parse → score (4 gates) → investigation → verify → intelligence → JSONL store
+  RSS fetch → parse → score (4 gates) → investigation → verify → intelligence → JSONL + PostgreSQL store
 
 Usage:
     python -m spec1_engine.app.cycle
@@ -34,6 +34,7 @@ from spec1_engine.investigation.generator import generate_investigation
 from spec1_engine.investigation.verifier import verify_investigation
 from spec1_engine.intelligence.analyzer import analyze
 from spec1_engine.intelligence.store import JsonlStore
+import spec1_engine.persistence.postgres as pg_store
 
 configure_root()
 logger = get_logger(__name__)
@@ -200,6 +201,7 @@ def run_cycle(
                 "outcome_confidence": outcome.confidence,
             }
             store.append(record_dict)
+            pg_store.append(record_dict)
             stored_records.append(record_dict)
             records_stored += 1
 

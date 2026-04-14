@@ -6,17 +6,26 @@ build-backend = "setuptools.build_meta"
 name = "spec1-engine"
 version = "0.2.0"
 description = "SPEC-1 Intelligence Engine — real RSS collectors, JSONL persistence, full analysis loop"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
     "feedparser>=6.0",
     "requests>=2.31",
     "beautifulsoup4>=4.12",
     "lxml>=4.9",
     "python-dateutil>=2.8",
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
+    "apscheduler>=3.10",
+    "anthropic>=0.20",
+    "python-dotenv>=1.0",
+    "pandas>=2.0",
+    "yfinance>=0.2",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4", "pytest-cov"]
+dev = ["pytest>=7.4", "pytest-cov", "httpx>=0.24"]
+postgres = ["psycopg2-binary>=2.9"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

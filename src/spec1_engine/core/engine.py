@@ -25,6 +25,7 @@ from spec1_engine.investigation.generator import generate_investigation
 from spec1_engine.investigation.verifier import verify_investigation
 from spec1_engine.intelligence.analyzer import analyze
 from spec1_engine.intelligence.store import JsonlStore
+import spec1_engine.persistence.postgres as pg_store
 
 logger = get_logger(__name__)
 
@@ -141,7 +142,9 @@ class Engine:
                 stats.outcomes_verified += 1
 
                 record = analyze(opp, inv, outcome, sig)
-                self.store.append(record.to_dict())
+                record_dict = record.to_dict()
+                self.store.append(record_dict)
+                pg_store.append(record_dict)
                 stats.records_stored += 1
             except Exception as exc:
                 stats.errors.append(f"pipeline:{opp.opportunity_id}:{exc}")
