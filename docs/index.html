@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPEC-1 — Signal Intelligence Engine · Matt Lakamp</title>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #fafaf7;
+  --page:   #ffffff;
+  --ink:    #111110;
+  --muted:  #666660;
+  --dim:    #aaa9a0;
+  --border: #d8d5cc;
+  --code:   #f2f1ed;
+  --mono: 'Courier Prime', 'Courier New', monospace;
+  --serif: 'EB Garamond', Georgia, serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--ink); font-family:var(--mono); font-size:14px; line-height:1.7; overflow-x:hidden; }
+
+/* COVER */
+.cover { position:fixed; inset:0; background:#fff; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:opacity 0.5s ease; }
+.cover.out { opacity:0; pointer-events:none; }
+.cover-svg { width:min(440px,82vw); height:min(440px,82vw); flex-shrink:0; }
+@keyframes fu { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+.cover > * { animation:fu 0.5s ease both; }
+.cover > *:nth-child(1){animation-delay:.05s}
+.cover > *:nth-child(2){animation-delay:.15s}
+.cover > *:nth-child(3){animation-delay:.25s}
+.cover > *:nth-child(4){animation-delay:.4s}
+.ct { font-family:var(--mono); font-size:clamp(28px,5vw,44px); font-weight:700; letter-spacing:.1em; color:#111; margin-top:22px; }
+.cs { font-family:var(--mono); font-size:10px; color:rgba(17,17,16,.38); letter-spacing:.22em; text-transform:uppercase; margin-top:8px; }
+.ch { font-family:var(--mono); font-size:9px; color:rgba(17,17,16,.18); letter-spacing:.18em; text-transform:uppercase; margin-top:28px; }
+
+/* LAYOUT */
+.wrap { max-width:860px; margin:0 auto; padding:0 2.5rem; }
+
+/* HEADER */
+header { padding:4.5rem 0 2.5rem; border-bottom:1px solid var(--border); }
+.sys { font-size:.6rem; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); margin-bottom:1.2rem; }
+h1 { font-family:var(--serif); font-size:clamp(2rem,5vw,3.8rem); font-weight:400; line-height:1.06; letter-spacing:-.02em; margin-bottom:1.2rem; }
+h1 em { font-style:italic; }
+.lede { font-family:var(--mono); font-size:.8rem; color:var(--muted); max-width:600px; line-height:2; border-left:2px solid var(--ink); padding-left:1.2rem; margin-top:1.4rem; }
+.pills { display:flex; flex-wrap:wrap; gap:.4rem; padding:1.2rem 0; border-bottom:1px solid var(--border); }
+.pill { font-size:.58rem; letter-spacing:.1em; text-transform:uppercase; padding:.22rem .65rem; border:1px solid var(--border); color:var(--muted); }
+.pill-ink { border-color:var(--ink); color:var(--ink); }
+
+/* SECTIONS */
+section { padding:3rem 0; border-bottom:1px solid var(--border); }
+h2 { font-family:var(--serif); font-size:1.55rem; font-weight:400; letter-spacing:-.01em; margin-bottom:1.6rem; display:flex; align-items:baseline; gap:.8rem; }
+.sn { font-family:var(--mono); font-size:.58rem; color:var(--dim); letter-spacing:.14em; }
+h3 { font-family:var(--mono); font-size:.63rem; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); margin:2rem 0 .7rem; padding-bottom:.35rem; border-bottom:1px solid var(--border); }
+h3:first-of-type { margin-top:0; }
+p { font-family:var(--mono); font-size:.8rem; color:var(--muted); max-width:680px; line-height:1.95; margin-bottom:.9rem; }
+p strong { color:var(--ink); font-weight:700; }
+p:last-child { margin-bottom:0; }
+
+/* PIPELINE */
+.pipeline { display:flex; align-items:stretch; border:1px solid var(--border); overflow-x:auto; margin:1.8rem 0; }
+.ps { flex:1; min-width:88px; padding:1rem .7rem; text-align:center; border-right:1px solid var(--border); }
+.ps:last-child { border-right:none; }
+.ps.on { background:var(--ink); }
+.ps-n { font-size:.5rem; letter-spacing:.1em; color:var(--dim); display:block; margin-bottom:.25rem; }
+.ps.on .ps-n { color:rgba(255,255,255,.4); }
+.ps-l { font-family:var(--mono); font-size:.65rem; font-weight:700; color:var(--muted); display:block; margin-bottom:.2rem; }
+.ps.on .ps-l { color:#fff; }
+.ps-d { font-size:.58rem; color:var(--dim); line-height:1.45; }
+.ps.on .ps-d { color:rgba(255,255,255,.45); }
+
+/* STAT GRID */
+.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); margin:1.8rem 0; }
+.stat { background:var(--page); padding:1.1rem 1rem; }
+.stat-n { font-family:var(--serif); font-size:clamp(1.6rem,3vw,2.4rem); font-weight:400; color:var(--ink); display:block; line-height:1; margin-bottom:.3rem; }
+.stat-l { font-size:.58rem; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); display:block; }
+
+/* THREE COLUMNS */
+.three { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); margin:1.8rem 0; }
+.col { background:var(--page); padding:1.4rem 1.2rem; }
+.col-label { font-size:.58rem; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-bottom:.5rem; display:block; }
+.col-title { font-family:var(--serif); font-size:1.1rem; font-weight:500; color:var(--ink); margin-bottom:.8rem; line-height:1.1; }
+.col-body { font-size:.72rem; color:var(--muted); line-height:1.75; }
+
+/* MODULE TABLE */
+.mod-table { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:.74rem; margin:1.5rem 0; }
+.mod-table th { font-size:.58rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); text-align:left; padding:7px 10px; background:var(--code); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.mod-table td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--muted); vertical-align:top; line-height:1.65; }
+.mod-table td:first-child { color:var(--ink); font-weight:700; white-space:nowrap; }
+.mod-table tr:last-child td { border-bottom:none; }
+
+/* GATE LIST */
+.gates { display:flex; flex-direction:column; gap:8px; margin:1.5rem 0; }
+.gate { display:flex; gap:14px; align-items:flex-start; padding:10px 12px; border:1px solid var(--border); background:var(--page); }
+.gate-n { font-size:.58rem; letter-spacing:.1em; color:var(--dim); flex-shrink:0; width:52px; margin-top:2px; }
+.gate-title { font-size:.7rem; font-weight:700; color:var(--ink); margin-bottom:2px; }
+.gate-body { font-size:.7rem; color:var(--muted); line-height:1.6; }
+
+/* CALLOUT */
+.callout { border:1px solid var(--border); border-left:2px solid var(--ink); background:var(--code); padding:1.1rem 1.3rem; margin:1.5rem 0; }
+.callout p { max-width:none; margin:0; }
+.callout-inv { background:var(--ink); border-color:var(--ink); }
+.callout-inv p { color:rgba(255,255,255,.75); }
+.callout-inv p strong { color:#fff; }
+
+/* TECH TABLE */
+.tech { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:.74rem; margin:1.5rem 0; }
+.tech td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; line-height:1.6; }
+.tech tr:last-child td { border-bottom:none; }
+.tech td:first-child { color:var(--muted); font-size:.65rem; letter-spacing:.08em; width:160px; background:var(--code); text-transform:uppercase; }
+.tech td:last-child { color:var(--ink); }
+
+/* CONTACT */
+.contact { border:1px solid var(--border); padding:1.6rem 1.8rem; background:var(--page); margin:1.5rem 0; }
+.cr { display:flex; gap:14px; padding:6px 0; border-bottom:1px solid var(--border); font-size:.75rem; }
+.cr:last-child { border-bottom:none; }
+.ck { color:var(--muted); min-width:72px; font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; }
+.cv { color:var(--ink); }
+.cv a { color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
+
+/* ORNAMENT */
+.orn { display:flex; align-items:center; gap:1rem; margin:2rem 0; }
+.orn-l { flex:1; height:1px; background:var(--border); }
+
+/* FOOTER */
+footer { padding:2.5rem 0 4rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem; align-items:flex-end; }
+.fl { font-size:.68rem; color:var(--dim); line-height:1.9; }
+.fr { font-size:.6rem; color:var(--border); text-align:right; line-height:1.9; }
+
+@media(max-width:660px){
+  .three,.stat-grid{grid-template-columns:1fr;}
+  .pipeline{flex-direction:column;}
+  .ps{border-right:none;border-bottom:1px solid var(--border);}
+  .wrap{padding:0 1.2rem;}
+  h1{font-size:2rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- COVER — Metatron's Cube -->
+<div class="cover" id="cv">
+  <svg class="cover-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+    <rect width="500" height="500" fill="#fff"/>
+    <!-- dot grid -->
+    <g fill="#000" opacity="0.055">
+      <g id="dg"><circle cx="0" cy="0" r=".8"/><circle cx="28" cy="0" r=".8"/><circle cx="56" cy="0" r=".8"/><circle cx="84" cy="0" r=".8"/><circle cx="112" cy="0" r=".8"/><circle cx="140" cy="0" r=".8"/><circle cx="168" cy="0" r=".8"/><circle cx="196" cy="0" r=".8"/><circle cx="224" cy="0" r=".8"/><circle cx="252" cy="0" r=".8"/><circle cx="280" cy="0" r=".8"/><circle cx="308" cy="0" r=".8"/><circle cx="336" cy="0" r=".8"/><circle cx="364" cy="0" r=".8"/><circle cx="392" cy="0" r=".8"/><circle cx="420" cy="0" r=".8"/><circle cx="448" cy="0" r=".8"/><circle cx="476" cy="0" r=".8"/></g>
+      <use href="#dg" y="28"/><use href="#dg" y="56"/><use href="#dg" y="84"/><use href="#dg" y="112"/><use href="#dg" y="140"/><use href="#dg" y="168"/><use href="#dg" y="196"/><use href="#dg" y="224"/><use href="#dg" y="252"/><use href="#dg" y="280"/><use href="#dg" y="308"/><use href="#dg" y="336"/><use href="#dg" y="364"/><use href="#dg" y="392"/><use href="#dg" y="420"/><use href="#dg" y="448"/><use href="#dg" y="476"/>
+    </g>
+    <!-- Metatron outer circle -->
+    <circle cx="250" cy="250" r="210" fill="none" stroke="#111" stroke-width=".4" opacity=".2"/>
+    <circle cx="250" cy="250" r="168" fill="none" stroke="#111" stroke-width=".5" opacity=".3"/>
+    <!-- Fruit of Life — 13 circles -->
+    <circle cx="250" cy="250" r="56" fill="none" stroke="#111" stroke-width="1.1" opacity=".7"/>
+    <circle cx="250" cy="138" r="56" fill="none" stroke="#111" stroke-width=".8" opacity=".5"/>
+    <circle cx="347" cy="194" r="56" fill="none" stroke="#111" stroke-width=".8" opacity=".5"/>
+    <circle cx="347" cy="306" r="56" fill="none" stroke="#111" stroke-width=".8" opacity=".5"/>
+    <circle cx="250" cy="362" r="56" fill="none" stroke="#111" stroke-width=".8" opacity=".5"/>
+    <circle cx="153" cy="306" r="56" fill="none" stroke="#111" stroke-width=".8" opacity=".5"/>
+    <circle cx="153" cy="194" r="56" fill="none" stroke="#111" stroke-width=".8" opacity=".5"/>
+    <circle cx="250" cy="26"  r="56" fill="none" stroke="#111" stroke-width=".4" opacity=".22"/>
+    <circle cx="444" cy="138" r="56" fill="none" stroke="#111" stroke-width=".4" opacity=".22"/>
+    <circle cx="444" cy="362" r="56" fill="none" stroke="#111" stroke-width=".4" opacity=".22"/>
+    <circle cx="250" cy="474" r="56" fill="none" stroke="#111" stroke-width=".4" opacity=".22"/>
+    <circle cx="56"  cy="362" r="56" fill="none" stroke="#111" stroke-width=".4" opacity=".22"/>
+    <circle cx="56"  cy="138" r="56" fill="none" stroke="#111" stroke-width=".4" opacity=".22"/>
+    <!-- Metatron lines — center to all outer nodes -->
+    <g stroke="#111" stroke-width=".4" opacity=".25">
+      <line x1="250" y1="250" x2="250" y2="82"/>
+      <line x1="250" y1="250" x2="250" y2="418"/>
+      <line x1="250" y1="250" x2="397" y2="166"/>
+      <line x1="250" y1="250" x2="103" y2="166"/>
+      <line x1="250" y1="250" x2="397" y2="334"/>
+      <line x1="250" y1="250" x2="103" y2="334"/>
+      <line x1="82" y1="250" x2="418" y2="250"/>
+      <line x1="118" y1="118" x2="382" y2="382"/>
+      <line x1="382" y1="118" x2="118" y2="382"/>
+    </g>
+    <!-- hexagram inner -->
+    <polygon points="250,172 319,214 319,298 250,340 181,298 181,214" fill="none" stroke="#111" stroke-width=".9" opacity=".5"/>
+    <polygon points="250,328 181,286 181,202 250,160 319,202 319,286" fill="none" stroke="#111" stroke-width=".9" opacity=".5"/>
+    <!-- center dot -->
+    <circle cx="250" cy="250" r="5" fill="#111" opacity=".8"/>
+    <!-- registration marks -->
+    <g stroke="#111" stroke-width=".7" opacity=".35">
+      <line x1="14" y1="14" x2="26" y2="14"/><line x1="14" y1="14" x2="14" y2="26"/>
+      <line x1="486" y1="14" x2="474" y2="14"/><line x1="486" y1="14" x2="486" y2="26"/>
+      <line x1="14" y1="486" x2="26" y2="486"/><line x1="14" y1="486" x2="14" y2="474"/>
+      <line x1="486" y1="486" x2="474" y2="486"/><line x1="486" y1="486" x2="486" y2="474"/>
+    </g>
+    <!-- halftone upper right -->
+    <g fill="#000" opacity=".22">
+      <circle cx="476" cy="24" r="3.5"/><circle cx="454" cy="24" r="2.8"/><circle cx="432" cy="24" r="2.1"/><circle cx="410" cy="24" r="1.4"/>
+      <circle cx="476" cy="46" r="2.8"/><circle cx="454" cy="46" r="2.1"/><circle cx="432" cy="46" r="1.4"/>
+      <circle cx="476" cy="68" r="2.1"/><circle cx="454" cy="68" r="1.4"/>
+      <circle cx="476" cy="90" r="1.4"/>
+    </g>
+  </svg>
+  <div class="ct">SPEC-1</div>
+  <div class="cs">Signal Intelligence Engine &nbsp;&middot;&nbsp; v0.2.0</div>
+  <div class="ch">click or press any key</div>
+</div>
+
+<div class="wrap">
+
+<header>
+  <div class="sys">// SPEC-1 &nbsp;&middot;&nbsp; Continuous Learning System &nbsp;&middot;&nbsp; OSINT · Quant · Congressional</div>
+  <h1>The system that reads the world<br>every morning. <em>And learns what<br>to watch next.</em></h1>
+  <p class="lede">519 tests. 7-stage pipeline. Daily brief with story leads.<br>
+  Runs at 06:00 AM PT without manual intervention.<br>
+  The loop closes.</p>
+</header>
+
+<div class="pills">
+  <span class="pill pill-ink">&bull; v0.2.0 Live</span>
+  <span class="pill pill-ink">&bull; 519 Tests</span>
+  <span class="pill">Python 3.11+</span>
+  <span class="pill">FastAPI</span>
+  <span class="pill">Claude API</span>
+  <span class="pill">APScheduler</span>
+  <span class="pill">JSONL Append-Only</span>
+  <span class="pill">github.com/mjlak1000/spec-1</span>
+</div>
+
+<!-- STATS -->
+<section>
+  <h2><span class="sn">00 //</span> By the numbers</h2>
+  <div class="stat-grid">
+    <div class="stat"><span class="stat-n">519</span><span class="stat-l">Tests passing</span></div>
+    <div class="stat"><span class="stat-n">285</span><span class="stat-l">Signals per cycle</span></div>
+    <div class="stat"><span class="stat-n">232</span><span class="stat-l">Records stored</span></div>
+    <div class="stat"><span class="stat-n">06:05</span><span class="stat-l">AM brief written</span></div>
+  </div>
+</section>
+
+<!-- THE PROBLEM -->
+<section>
+  <h2><span class="sn">01 //</span> The problem</h2>
+  <p>The bottleneck in intelligence work is not information. It is attention. Feeds from think tanks, investigative outlets, and defense research organizations produce dozens of pieces every day. Most are not actionable. A small fraction are. The challenge is triage.</p>
+  <p>Most tools do not solve this. They aggregate. They surface the same noise forever because <strong>nothing about their output feeds back into their input.</strong> The loop never closes.</p>
+  <div class="callout callout-inv">
+    <p><strong>SPEC-1 closes the loop.</strong> Every signal scored. Every outcome classified. Thresholds updated before the next cycle runs. The brief tomorrow is shaped by what was accurate today.</p>
+  </div>
+</section>
+
+<!-- PIPELINE -->
+<section>
+  <h2><span class="sn">02 //</span> Seven-stage pipeline</h2>
+  <div class="pipeline">
+    <div class="ps on"><span class="ps-n">01</span><span class="ps-l">HARVEST</span><span class="ps-d">6 RSS feeds.<br>SSL-tolerant.</span></div>
+    <div class="ps"><span class="ps-n">02</span><span class="ps-l">PARSE</span><span class="ps-d">HTML clean.<br>NLP extract.</span></div>
+    <div class="ps on"><span class="ps-n">03</span><span class="ps-l">SCORE</span><span class="ps-d">4-gate filter.<br>Any fail = drop.</span></div>
+    <div class="ps"><span class="ps-n">04</span><span class="ps-l">INVESTIGATE</span><span class="ps-d">Hypothesis.<br>Analyst leads.</span></div>
+    <div class="ps on"><span class="ps-n">05</span><span class="ps-l">VERIFY</span><span class="ps-d">Claude Haiku.<br>6 classifications.</span></div>
+    <div class="ps"><span class="ps-n">06</span><span class="ps-l">ANALYZE</span><span class="ps-d">Confidence blend.<br>Pattern extract.</span></div>
+    <div class="ps on"><span class="ps-n">07</span><span class="ps-l">STORE</span><span class="ps-d">JSONL.<br>Append-only.</span></div>
+  </div>
+
+  <h3>The four-gate scoring framework</h3>
+  <div class="gates">
+    <div class="gate">
+      <div class="gate-n">Gate 1</div>
+      <div><div class="gate-title">Credibility</div><div class="gate-body">Source editorial standards, domain expertise, track record. Lower-rated sources do not advance regardless of content. Internal ratings — not published.</div></div>
+    </div>
+    <div class="gate">
+      <div class="gate-n">Gate 2</div>
+      <div><div class="gate-title">Volume</div><div class="gate-body">Sufficient content depth. Brief posts and summaries filtered out. Only signals with meaningful substance continue.</div></div>
+    </div>
+    <div class="gate">
+      <div class="gate-n">Gate 3</div>
+      <div><div class="gate-title">Velocity</div><div class="gate-body">Intelligence value degrades rapidly. Scoring rewards recency, penalizes stale signals on a sliding scale across time windows.</div></div>
+    </div>
+    <div class="gate">
+      <div class="gate-n">Gate 4</div>
+      <div><div class="gate-title">Novelty</div><div class="gate-body">High-value domain keyword match. Inconsequential topics excluded regardless of source credibility. Keyword taxonomy not published.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- THREE FRAMINGS -->
+<section>
+  <h2><span class="sn">03 //</span> Three ways to think about it</h2>
+  <div class="three">
+    <div class="col">
+      <span class="col-label">As a service</span>
+      <div class="col-title">Intelligence delivered every morning.</div>
+      <div class="col-body">Runs on a schedule. At 06:00 AM it reads the world. At 06:05 AM the brief exists — scored, verified, written. Story leads included with sources to call and documents to request. API access to pull signals, records, and briefs on demand.</div>
+    </div>
+    <div class="col">
+      <span class="col-label">As a product</span>
+      <div class="col-title">Self-improving architecture you can run yourself.</div>
+      <div class="col-body">Open architecture. Readable, auditable, extensible. Append-only records. Single-writer rule. Kill switch. run_id on every record. Full cycle reconstruction possible from JSONL alone. Add sources, domains, analyst registries.</div>
+    </div>
+    <div class="col">
+      <span class="col-label">As a tool</span>
+      <div class="col-title">For journalists. Researchers. Anyone who needs to know first.</div>
+      <div class="col-body">The brief reads in 4 minutes. Leads are specific enough to pitch in an editor meeting. Every claim traces to a scored signal. Confidence stated plainly — low confidence leads are flagged, not dropped.</div>
+    </div>
+  </div>
+</section>
+
+<!-- DOMAINS -->
+<section>
+  <h2><span class="sn">04 //</span> Domain modules</h2>
+
+  <h3>Integrated</h3>
+  <table class="mod-table">
+    <thead><tr><th>Module</th><th>What it does</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>OSINT Core</td><td>6 defense/security RSS feeds — War on the Rocks, Cipher Brief, Just Security, RAND, Atlantic Council, Defense One</td><td>Live · daily 06:00 AM PT</td></tr>
+      <tr><td>cls_psyop</td><td>Narrative detection. TF-IDF cosine similarity clustering, entity mention anomalies, publication silence patterns, campaign aggregation</td><td>Live · integrated</td></tr>
+      <tr><td>Quant</td><td>4-sector equity watchlist via yfinance — defense primes, cyber vendors, energy majors, macro instruments. 4-gate framework on price/volume</td><td>Live · daily 06:30 AM PT</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Planned</h3>
+  <table class="mod-table">
+    <thead><tr><th>Module</th><th>What it does</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Congressional</td><td>Member financial disclosures cross-referenced for conflict-of-interest analysis in defense, cybersecurity, and energy sectors</td><td>Module built · integration pending</td></tr>
+      <tr><td>FARA</td><td>DoJ registrant-principal relationship analysis. Foreign agent registrations surfaced as scored intelligence signals</td><td>Planned · v1.0</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- BRIEF + WORKSPACE -->
+<section>
+  <h2><span class="sn">05 //</span> The daily brief</h2>
+  <p>After each cycle Claude Sonnet writes a structured intelligence brief. Every claim traces to a scored signal. Six sections — every morning, every cycle.</p>
+
+  <table class="mod-table">
+    <thead><tr><th>Section</th><th>What it contains</th></tr></thead>
+    <tbody>
+      <tr><td>Executive Summary</td><td>3 sentences. What happened. What it means. What is uncertain.</td></tr>
+      <tr><td>Elevated Signals</td><td>One paragraph per elevated signal with confidence score and watch directive</td></tr>
+      <tr><td>Domain Briefings</td><td>Geopolitics narrative · Cyber/Info Ops narrative — patterns, not lists</td></tr>
+      <tr><td>Story Leads</td><td>3–5 actionable leads: the question, who to call, documents to request, freshness window, confidence flag</td></tr>
+      <tr><td>Research Prompts</td><td>Copy-paste Claude prompts shipped with each lead — ready to use immediately</td></tr>
+      <tr><td>Watch List</td><td>3–5 specific things to monitor tomorrow, tied to today's signals</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Investigation workspace</h3>
+  <p>Added April 2026. Open a case on any topic — a name, a pattern, a hunch. Every morning SPEC-1 checks incoming signals against every open case. Matches go into the case file. Claude writes a finding update. The brief includes a case status section.</p>
+  <p>Cases stay open until you close them. Closing writes a final report. <strong>Persistent evidence accumulation across weeks or months.</strong></p>
+</section>
+
+<!-- LEARNING -->
+<section>
+  <h2><span class="sn">06 //</span> How it learns</h2>
+  <p>No neural network. No gradient descent. The scoring framework is rule-based and deterministic. But the system improves — through explicit, auditable calibration rather than implicit weight adjustment.</p>
+
+  <div class="callout">
+    <p><strong>A neural network learns implicitly. SPEC-1 learns explicitly.</strong> The tradeoff is transparency and control in exchange for automation. When a threshold is wrong, the failure is diagnosable. The specific threshold that failed can be identified and adjusted.</p>
+  </div>
+
+  <p>Source credibility ratings update as publishers change. The analyst registry grows as experts establish track records. The test suite — 519 tests — encodes the accumulated judgment of every calibration decision. Changes can be made and validated without silent regressions.</p>
+  <p>The 519 tests are not incidental. They are the changelog of every threshold decision made.</p>
+</section>
+
+<!-- TECHNICAL SUMMARY -->
+<section>
+  <h2><span class="sn">07 //</span> Technical summary</h2>
+  <table class="tech">
+    <tbody>
+      <tr><td>Language</td><td>Python 3.11+</td></tr>
+      <tr><td>Pipeline</td><td>7 stages (harvest → store) + briefing module + investigation workspace</td></tr>
+      <tr><td>Sources</td><td>War on the Rocks · Cipher Brief · Just Security · RAND · Atlantic Council · Defense One</td></tr>
+      <tr><td>Scoring</td><td>4-gate deterministic filtering — credibility, volume, velocity, novelty</td></tr>
+      <tr><td>AI</td><td>Claude Haiku (verification) · Claude Sonnet (briefing + workspace research)</td></tr>
+      <tr><td>Market data</td><td>yfinance — 4-sector equity watchlist</td></tr>
+      <tr><td>Persistence</td><td>Append-only JSONL (ground truth) · PostgreSQL planned v1.0</td></tr>
+      <tr><td>API</td><td>FastAPI · APScheduler · 06:00 AM PT daily cron · kill-switch mechanism</td></tr>
+      <tr><td>Tests</td><td>519 comprehensive tests · 0 failing</td></tr>
+      <tr><td>Version</td><td>v0.2.0 · April 14 2026</td></tr>
+      <tr><td>Repo</td><td>github.com/mjlak1000/spec-1</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- CONTACT -->
+<div class="orn"><div class="orn-l"></div><svg width="28" height="28" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="opacity:.18;flex-shrink:0"><circle cx="20" cy="20" r="18" fill="none" stroke="#111" stroke-width=".8"/><circle cx="20" cy="20" r="10" fill="none" stroke="#111" stroke-width=".8"/><circle cx="30" cy="20" r="10" fill="none" stroke="#111" stroke-width=".5"/><circle cx="10" cy="20" r="10" fill="none" stroke="#111" stroke-width=".5"/><circle cx="25" cy="11" r="10" fill="none" stroke="#111" stroke-width=".5"/><circle cx="15" cy="11" r="10" fill="none" stroke="#111" stroke-width=".5"/><circle cx="25" cy="29" r="10" fill="none" stroke="#111" stroke-width=".5"/><circle cx="15" cy="29" r="10" fill="none" stroke="#111" stroke-width=".5"/></svg><div class="orn-l"></div></div>
+
+<div class="contact">
+  <div class="cr"><span class="ck">Name</span><span class="cv">Matt Lakamp</span></div>
+  <div class="cr"><span class="ck">Phone</span><span class="cv">503-317-7821</span></div>
+  <div class="cr"><span class="ck">Email</span><span class="cv"><a href="mailto:Lakamp@evastararcana.com">Lakamp@evastararcana.com</a></span></div>
+  <div class="cr"><span class="ck">Repo</span><span class="cv"><a href="https://github.com/mjlak1000/spec-1">github.com/mjlak1000/spec-1</a></span></div>
+  <div class="cr"><span class="ck">Portfolio</span><span class="cv"><a href="https://mjlak1000.github.io/cls-portfolio">mjlak1000.github.io/cls-portfolio</a></span></div>
+  <div class="cr"><span class="ck">Status</span><span class="cv">Open — implementation, automation, intelligence tooling roles · Portland, OR</span></div>
+</div>
+
+<footer>
+  <div class="fl">Matt Lakamp &nbsp;&middot;&nbsp; Portland, OR<br>SPEC-1 &nbsp;&middot;&nbsp; Continuous Learning System &nbsp;&middot;&nbsp; v0.2.0</div>
+  <div class="fr">519 tests · 0 failing<br>April 14 2026<br>Signal &rarr; Score &rarr; Brief &rarr; Learn</div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var c=document.getElementById('cv');
+  function d(){c.classList.add('out');setTimeout(function(){c.style.display='none'},520);}
+  c.addEventListener('click',d);
+  document.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '||e.key==='Escape')d();});
+})();
+</script>
+</body>
+</html>
