@@ -1,0 +1,45 @@
+### Health check
+GET http://localhost:8000/api/v1/health
+
+### Trigger OSINT cycle
+POST http://localhost:8000/api/v1/cycle/run
+
+### Get cycle status
+GET http://localhost:8000/api/v1/cycle/status
+
+### Latest signals
+GET http://localhost:8000/api/v1/signals/latest?limit=10
+
+### Latest intelligence records
+GET http://localhost:8000/api/v1/intelligence/latest?limit=10
+
+### Latest brief
+GET http://localhost:8000/api/v1/brief/latest
+
+### Brief index
+GET http://localhost:8000/api/v1/brief/index
+
+### Trigger quant cycle
+POST http://localhost:8000/api/v1/quant/cycle/run
+
+### Quant status
+GET http://localhost:8000/api/v1/quant/status
+
+### Open investigation case
+POST http://localhost:8000/api/v1/workspace/cases
+Content-Type: application/json
+
+{
+  "title": "New Investigation",
+  "question": "What are we investigating?",
+  "tags": ["tag1", "tag2"]
+}
+
+### List open cases
+GET http://localhost:8000/api/v1/workspace/cases
+
+### Engage kill switch
+POST http://localhost:8000/api/v1/kill
+
+### Clear kill switch
+DELETE http://localhost:8000/api/v1/kill

@@ -1,0 +1,85 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "SPEC-1 — Run OSINT Cycle",
+            "type": "python",
+            "request": "launch",
+            "module": "spec1_engine.app.cycle",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SPEC-1 — Run Quant Cycle",
+            "type": "python",
+            "request": "launch",
+            "module": "spec1_engine.quant.cycle",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SPEC-1 — Run Congressional Cycle",
+            "type": "python",
+            "request": "launch",
+            "module": "spec1_engine.congressional.cycle",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SPEC-1 — Start FastAPI Service",
+            "type": "python",
+            "request": "launch",
+            "module": "spec1_engine.main",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SPEC-1 — Run All Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v",
+                "--tb=short"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SPEC-1 — Open Investigation Workspace",
+            "type": "python",
+            "request": "launch",
+            "module": "spec1_engine.workspace",
+            "args": [
+                "list"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        }
+    ]
+}

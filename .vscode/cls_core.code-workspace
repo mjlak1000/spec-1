@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../cls_core"
+		},
+		{
+			"path": "../../tests"
+		},
+		{
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
