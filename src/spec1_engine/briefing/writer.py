@@ -14,13 +14,22 @@ BRIEFS_DIR = Path("briefs")
 _lock = threading.Lock()
 
 
-def write_brief(brief: str, run_id: str, timestamp: str) -> str:
+def write_brief(
+    brief: str,
+    run_id: str,
+    timestamp: str,
+    prompts: str | None = None,
+) -> str:
     """Write brief to disk and return the filepath string.
 
     Creates:
-      briefs/spec1_brief_{YYYY-MM-DD}.md  — dated file
-      briefs/spec1_brief_latest.md        — always overwritten
-      briefs/brief_index.jsonl            — append-only index
+      briefs/spec1_brief_{YYYY-MM-DD}.md    — dated file
+      briefs/spec1_brief_latest.md          — always overwritten
+      briefs/brief_index.jsonl              — append-only index
+
+    When *prompts* is supplied also creates:
+      briefs/spec1_prompts_{YYYY-MM-DD}.md  — dated prompts snapshot
+      briefs/spec1_prompts_latest.md        — always overwritten
     """
     BRIEFS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -40,6 +49,10 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
     with _lock:
         dated_path.write_text(brief, encoding="utf-8")
         latest_path.write_text(brief, encoding="utf-8")
+
+        if prompts is not None:
+            (BRIEFS_DIR / f"spec1_prompts_{date_str}.md").write_text(prompts, encoding="utf-8")
+            (BRIEFS_DIR / "spec1_prompts_latest.md").write_text(prompts, encoding="utf-8")
 
         index_entry = {
             "run_id": run_id,
