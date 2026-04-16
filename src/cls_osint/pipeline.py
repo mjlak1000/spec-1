@@ -89,7 +89,7 @@ class OsintPipeline:
         # 1. RSS feed collection
         if collect_rss:
             try:
-                rss_sources = get_sources_by_type("rss")
+                rss_sources = get_sources_by_type("RSS")
                 result = fetch_all_rss(rss_sources, timeout=self.feed_timeout)
                 rss_records: list[OSINTRecord] = result["records"]
                 all_osint.extend(rss_records)

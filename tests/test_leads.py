@@ -18,7 +18,7 @@ def _make_lead(
     title="Test lead",
     summary="Test summary",
     priority="HIGH",
-    category="military",
+    category="MILITARY",
     confidence=0.75,
 ):
     return Lead(
@@ -37,7 +37,7 @@ def _make_intel_record(content="Defense activity detected", confidence=0.8):
         "record_id": "intel_001",
         "pattern": content,
         "content": content,
-        "classification": "Corroborated",
+        "classification": "CORROBORATED",
         "confidence": confidence,
         "source_type": "rss",
     }
@@ -49,7 +49,7 @@ class TestLeadSchema:
         d = lead.to_dict()
         assert d["lead_id"] == "lead_001"
         assert d["priority"] == "HIGH"
-        assert d["category"] == "military"
+        assert d["category"] == "MILITARY"
         assert d["confidence"] == 0.75
 
     def test_make_id_is_deterministic(self):
@@ -76,17 +76,17 @@ class TestScoreRecord:
     def test_cyber_is_high(self):
         priority, category = _score_record("APT41 breach of critical infrastructure")
         assert priority == "HIGH"
-        assert category == "cyber"
+        assert category == "CYBER"
 
     def test_fara_is_high(self):
         priority, category = _score_record("FARA filing for undisclosed foreign agent lobbying")
         assert priority == "HIGH"
-        assert category == "fara"
+        assert category == "FARA"
 
     def test_psyop_is_high(self):
         priority, category = _score_record("Influence operation disinformation campaign detected")
         assert priority == "HIGH"
-        assert category == "psyop"
+        assert category == "PSYOP"
 
     def test_military_exercise_is_medium(self):
         priority, category = _score_record("Military exercise and joint drill scheduled in Pacific")
@@ -99,19 +99,19 @@ class TestScoreRecord:
 
 class TestBuildActionItems:
     def test_critical_has_escalate_action(self):
-        actions = _build_action_items("CRITICAL", "military", "nuclear threat")
+        actions = _build_action_items("CRITICAL", "MILITARY", "nuclear threat")
         assert any("Escalate" in a for a in actions)
 
     def test_high_has_review_action(self):
-        actions = _build_action_items("HIGH", "cyber", "breach detected")
+        actions = _build_action_items("HIGH", "CYBER", "breach detected")
         assert any("verify" in a.lower() or "review" in a.lower() for a in actions)
 
     def test_cyber_category_has_soc_action(self):
-        actions = _build_action_items("HIGH", "cyber", "hack")
+        actions = _build_action_items("HIGH", "CYBER", "hack")
         assert any("SOC" in a for a in actions)
 
     def test_fara_category_has_fara_action(self):
-        actions = _build_action_items("HIGH", "fara", "fara filing")
+        actions = _build_action_items("HIGH", "FARA", "fara filing")
         assert any("FARA" in a for a in actions)
 
 
@@ -229,10 +229,10 @@ class TestLeadStore:
 
     def test_by_category_filter(self, tmp_path):
         store = LeadStore(tmp_path / "leads.jsonl")
-        store.save(_make_lead(lead_id="l1", category="cyber"))
-        store.save(_make_lead(lead_id="l2", category="military"))
+        store.save(_make_lead(lead_id="l1", category="CYBER"))
+        store.save(_make_lead(lead_id="l2", category="MILITARY"))
 
-        cyber = list(store.by_category("cyber"))
+        cyber = list(store.by_category("CYBER"))
         assert len(cyber) == 1
 
     def test_latest_returns_last_n(self, tmp_path):

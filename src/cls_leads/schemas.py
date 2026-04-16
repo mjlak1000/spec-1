@@ -19,7 +19,7 @@ class Lead:
     title: str
     summary: str
     priority: str                    # "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
-    category: str                    # "military" | "cyber" | "geopolitical" | "fara" | "psyop" | "quant"
+    category: str                    # "MILITARY" | "CYBER" | "GEOPOLITICAL" | "FARA" | "PSYOP" | "QUANT"
     source_record_ids: list[str] = field(default_factory=list)
     action_items: list[str] = field(default_factory=list)
     confidence: float = 0.5

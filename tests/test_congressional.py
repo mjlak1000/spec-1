@@ -42,33 +42,33 @@ class TestExtractBillId:
 
 class TestExtractChamber:
     def test_detects_house_from_hr(self):
-        assert _extract_chamber("Defense bill", "H.R.1234") == "House"
+        assert _extract_chamber("Defense bill", "H.R.1234") == "HOUSE"
 
     def test_detects_senate_from_s(self):
-        assert _extract_chamber("Intelligence bill", "S.567") == "Senate"
+        assert _extract_chamber("Intelligence bill", "S.567") == "SENATE"
 
     def test_detects_house_from_title(self):
-        assert _extract_chamber("House Passed Defense Act", "") == "House"
+        assert _extract_chamber("House Passed Defense Act", "") == "HOUSE"
 
     def test_returns_unknown_for_ambiguous(self):
-        assert _extract_chamber("Some bill", "") == "Unknown"
+        assert _extract_chamber("Some bill", "") == "UNKNOWN"
 
 
 class TestExtractStatus:
     def test_detects_enacted(self):
-        assert _extract_status("The bill was signed into law today") == "enacted"
+        assert _extract_status("The bill was signed into law today") == "ENACTED"
 
     def test_detects_passed_senate(self):
-        assert _extract_status("passed senate 60-40") == "passed_senate"
+        assert _extract_status("passed senate 60-40") == "PASSED_SENATE"
 
     def test_detects_passed_house(self):
-        assert _extract_status("passed house by voice vote") == "passed_house"
+        assert _extract_status("passed house by voice vote") == "PASSED_HOUSE"
 
     def test_detects_failed(self):
-        assert _extract_status("The bill failed to pass") == "failed"
+        assert _extract_status("The bill failed to pass") == "FAILED"
 
     def test_defaults_to_introduced(self):
-        assert _extract_status("A new bill was introduced") == "introduced"
+        assert _extract_status("A new bill was introduced") == "INTRODUCED"
 
 
 class TestExtractSponsor:
@@ -81,7 +81,7 @@ class TestExtractSponsor:
         assert "Jane Doe" in sponsor
 
     def test_returns_unknown_for_no_match(self):
-        assert _extract_sponsor("No sponsor information here") == "Unknown"
+        assert _extract_sponsor("No sponsor information here") == "UNKNOWN"
 
 
 class TestExtractTags:
@@ -104,16 +104,16 @@ class TestExtractTags:
 
 class TestClassifyRecordType:
     def test_detects_hearing(self):
-        assert _classify_record_type("Senate Hearing on Defense Budget", "") == "hearing"
+        assert _classify_record_type("Senate Hearing on Defense Budget", "") == "HEARING"
 
     def test_detects_resolution(self):
-        assert _classify_record_type("H.Res.100 Resolution on foreign policy", "") == "resolution"
+        assert _classify_record_type("H.Res.100 Resolution on foreign policy", "") == "RESOLUTION"
 
     def test_detects_amendment(self):
-        assert _classify_record_type("Amendment to NDAA", "") == "amendment"
+        assert _classify_record_type("Amendment to NDAA", "") == "AMENDMENT"
 
     def test_defaults_to_bill(self):
-        assert _classify_record_type("H.R.1234 New Legislation", "") == "bill"
+        assert _classify_record_type("H.R.1234 New Legislation", "") == "BILL"
 
 
 class TestMakeRecordId:
@@ -135,36 +135,36 @@ class TestCongressRecord:
     def test_to_dict(self):
         rec = CongressRecord(
             record_id="congress_001",
-            record_type="bill",
+            record_type="BILL",
             bill_id="H.R.1234",
             title="Defense Act",
             sponsor="Rep. Smith",
-            chamber="House",
-            status="introduced",
+            chamber="HOUSE",
+            status="INTRODUCED",
             date=datetime(2024, 1, 15, tzinfo=timezone.utc),
             summary="Authorizes defense spending.",
             url="https://congress.gov/bill/1234",
         )
         d = rec.to_dict()
         assert d["bill_id"] == "H.R.1234"
-        assert d["chamber"] == "House"
-        assert d["status"] == "introduced"
+        assert d["chamber"] == "HOUSE"
+        assert d["status"] == "INTRODUCED"
 
     def test_to_osint_record(self):
         rec = CongressRecord(
             record_id="congress_002",
-            record_type="bill",
+            record_type="BILL",
             bill_id="S.500",
             title="Intelligence Authorization Act",
             sponsor="Sen. Jones",
-            chamber="Senate",
-            status="passed_senate",
+            chamber="SENATE",
+            status="PASSED_SENATE",
             date=datetime(2024, 3, 1, tzinfo=timezone.utc),
             summary="Intelligence community funding.",
             url="https://congress.gov/bill/s500",
         )
         osint = rec.to_osint_record()
-        assert osint.source_type == "congressional"
+        assert osint.source_type == "CONGRESSIONAL"
         assert "S.500" in osint.content
         assert "Intelligence Authorization" in osint.content
 
@@ -217,12 +217,12 @@ class TestCollect:
     def test_deduplicates_across_sources(self):
         rec = CongressRecord(
             record_id="dedup_001",
-            record_type="bill",
+            record_type="BILL",
             bill_id="H.R.1",
             title="Test",
             sponsor="Rep. X",
-            chamber="House",
-            status="introduced",
+            chamber="HOUSE",
+            status="INTRODUCED",
             date=datetime(2024, 1, 1, tzinfo=timezone.utc),
             summary="Test",
             url="https://congress.gov/1",
@@ -237,24 +237,24 @@ class TestCollect:
     def test_combines_multiple_sources(self):
         rec1 = CongressRecord(
             record_id="rec_1",
-            record_type="bill",
+            record_type="BILL",
             bill_id="H.R.1",
             title="Bill One",
             sponsor="Rep. A",
-            chamber="House",
-            status="introduced",
+            chamber="HOUSE",
+            status="INTRODUCED",
             date=datetime(2024, 1, 1, tzinfo=timezone.utc),
             summary="",
             url="",
         )
         rec2 = CongressRecord(
             record_id="rec_2",
-            record_type="bill",
+            record_type="BILL",
             bill_id="S.2",
             title="Bill Two",
             sponsor="Sen. B",
-            chamber="Senate",
-            status="introduced",
+            chamber="SENATE",
+            status="INTRODUCED",
             date=datetime(2024, 1, 2, tzinfo=timezone.utc),
             summary="",
             url="",

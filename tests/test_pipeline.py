@@ -12,7 +12,7 @@ from cls_osint.pipeline import OsintPipeline, PipelineStats, run_pipeline
 from datetime import datetime, timezone
 
 
-def _make_osint_record(record_id="rec_001", source_type="rss", content="Defense spending increased"):
+def _make_osint_record(record_id="rec_001", source_type="RSS", content="Defense spending increased"):
     return OSINTRecord(
         record_id=record_id,
         source_type=source_type,
@@ -37,12 +37,12 @@ def _make_fara_record():
 def _make_congress_record():
     return CongressRecord(
         record_id="congress_001",
-        record_type="bill",
+        record_type="BILL",
         bill_id="H.R.1234",
         title="National Defense Authorization Act",
         sponsor="Rep. Smith",
-        chamber="House",
-        status="introduced",
+        chamber="HOUSE",
+        status="INTRODUCED",
         date=datetime(2024, 1, 5, tzinfo=timezone.utc),
         summary="Authorizes defense spending for FY2025.",
         url="https://congress.gov/bill/1234",
@@ -165,13 +165,13 @@ class TestOsintPipeline:
         store_path = tmp_path / "osint.jsonl"
         pipeline = OsintPipeline(store_path=store_path)
 
-        pipeline.store.append({"record_id": "r1", "source_type": "fara", "content": "x"})
+        pipeline.store.append({"record_id": "r1", "source_type": "FARA", "content": "x"})
         pipeline.store.append({"record_id": "r2", "source_type": "rss", "content": "y"})
-        pipeline.store.append({"record_id": "r3", "source_type": "fara", "content": "z"})
+        pipeline.store.append({"record_id": "r3", "source_type": "FARA", "content": "z"})
 
-        fara_records = pipeline.get_by_type("fara")
+        fara_records = pipeline.get_by_type("FARA")
         assert len(fara_records) == 2
-        assert all(r["source_type"] == "fara" for r in fara_records)
+        assert all(r["source_type"] == "FARA" for r in fara_records)
 
 
 class TestRunPipeline:

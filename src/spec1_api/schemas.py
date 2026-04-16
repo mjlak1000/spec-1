@@ -36,7 +36,7 @@ class CycleResponse(BaseModel):
 class SignalResponse(BaseModel):
     signal_id: str
     source: str
-    source_type: str = "rss"
+    source_type: str = "RSS"
     text: str
     url: str
     author: str = ""
@@ -98,7 +98,7 @@ class FaraResponse(BaseModel):
     activities: list[str] = Field(default_factory=list)
     filed_at: str
     doc_url: str
-    status: str = "active"
+    status: str = "ACTIVE"
 
 
 class PaginatedResponse(BaseModel):

@@ -417,7 +417,7 @@ def test_verify_outcome_confidence_range():
 
 
 def test_verify_outcome_valid_classification():
-    valid = {"Corroborated", "Escalate", "Investigate", "Monitor", "Conflicted", "Archive"}
+    valid = {"CORROBORATED", "ESCALATE", "INVESTIGATE", "MONITOR", "CONFLICTED", "ARCHIVE"}
     opp = make_opportunity()
     sig = make_signal()
     ps = make_parsed()
@@ -894,7 +894,7 @@ def test_analyze_with_no_analyst_leads_uses_default_weight():
     )
     outcome = Outcome(
         outcome_id="out-test",
-        classification="Investigate",
+        classification="INVESTIGATE",
         confidence=0.70,
         evidence=["test evidence"],
     )

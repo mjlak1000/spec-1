@@ -412,7 +412,7 @@ def _make_investigation(opportunity_id: str = "opp-q-test"):
     )
 
 
-def _make_outcome(classification: str = "Investigate", confidence: float = 0.5):
+def _make_outcome(classification: str = "INVESTIGATE", confidence: float = 0.5):
     from spec1_engine.schemas.models import Outcome
     return Outcome(
         outcome_id="out-q-test",
@@ -475,9 +475,9 @@ def test_analyze_confidence_in_range():
 def test_analyze_classification_passes_through():
     from spec1_engine.quant.analyzer import analyze
     sig = make_signal("LMT")
-    out = _make_outcome(classification="Escalate")
+    out = _make_outcome(classification="ESCALATE")
     rec = analyze(_make_opportunity(), _make_investigation(), out, sig)
-    assert rec.classification == "Escalate"
+    assert rec.classification == "ESCALATE"
 
 
 def test_analyze_source_weight_is_sector_weight():
@@ -516,7 +516,7 @@ def test_run_quant_cycle_returns_dict(tmp_path):
          patch("spec1_engine.quant.cycle.verify_investigation") as mock_verify:
         from spec1_engine.schemas.models import Outcome
         mock_verify.return_value = Outcome(
-            outcome_id="out-test", classification="Investigate",
+            outcome_id="out-test", classification="INVESTIGATE",
             confidence=0.5, evidence=[],
         )
         stats = run_quant_cycle(
@@ -575,7 +575,7 @@ def test_run_quant_cycle_writes_jsonl(tmp_path):
     with patch("spec1_engine.quant.cycle.fetch_all", return_value=mock_ohlcv), \
          patch("spec1_engine.quant.cycle.verify_investigation") as mock_verify:
         mock_verify.return_value = Outcome(
-            outcome_id="out-t", classification="Monitor",
+            outcome_id="out-t", classification="MONITOR",
             confidence=0.4, evidence=[],
         )
         stats = run_quant_cycle(store_path=store_path, tickers=["LMT"], verbose=False)

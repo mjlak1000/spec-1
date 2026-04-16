@@ -122,7 +122,7 @@ def fetch_feed(
 
         yield OSINTRecord(
             record_id=record_id,
-            source_type="rss",
+            source_type="RSS",
             source_name=source.name,
             content=text,
             url=link,

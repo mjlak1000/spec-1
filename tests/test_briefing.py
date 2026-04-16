@@ -149,7 +149,7 @@ def test_generate_brief_contains_all_required_sections():
 
 def test_generate_brief_story_leads_present_with_elevated():
     from spec1_engine.briefing.generator import generate_brief
-    records = [make_record(classification="Corroborated", priority="ELEVATED")]
+    records = [make_record(classification="CORROBORATED", priority="ELEVATED")]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
@@ -207,9 +207,9 @@ def test_generate_brief_fallback_contains_date():
 def test_generate_brief_elevated_count_in_prompt():
     from spec1_engine.briefing.generator import _build_prompt
     records = [
-        make_record(classification="Corroborated"),
-        make_record(classification="Escalate", source="rand"),
-        make_record(classification="Investigate", source="defense_one"),
+        make_record(classification="CORROBORATED"),
+        make_record(classification="ESCALATE", source="rand"),
+        make_record(classification="INVESTIGATE", source="defense_one"),
     ]
     stats = make_cycle_stats()
     prompt = _build_prompt(records, stats)
@@ -256,9 +256,9 @@ def test_format_record_contains_confidence():
 
 def test_format_record_contains_classification():
     from spec1_engine.briefing.generator import _format_record
-    rec = make_record(classification="Escalate")
+    rec = make_record(classification="ESCALATE")
     result = _format_record(rec)
-    assert "classification=Escalate" in result
+    assert "classification=ESCALATE" in result
 
 
 def test_classify_domain_cyber():

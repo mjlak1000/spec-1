@@ -101,7 +101,7 @@ class TestFaraRecord:
         assert d["record_id"] == "fara_001"
         assert d["registrant"] == "Acme Corp"
         assert d["country"] == "China"
-        assert d["status"] == "active"
+        assert d["status"] == "ACTIVE"
 
     def test_to_osint_record(self):
         rec = FaraRecord(
@@ -114,7 +114,7 @@ class TestFaraRecord:
             doc_url="https://fara.gov/doc/002",
         )
         osint = rec.to_osint_record()
-        assert osint.source_type == "fara"
+        assert osint.source_type == "FARA"
         assert "Beta LLC" in osint.content
         assert "Saudi Arabia" in osint.content
 

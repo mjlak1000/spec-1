@@ -112,7 +112,7 @@ class Outcome:
     """Outcome of verifying an investigation."""
 
     outcome_id: str
-    classification: str  # "Corroborated" | "Escalate" | "Investigate" | "Monitor" | "Conflicted" | "Archive"
+    classification: str  # "CORROBORATED" | "ESCALATE" | "INVESTIGATE" | "MONITOR" | "CONFLICTED" | "ARCHIVE"
     confidence: float
     evidence: list[str]
 

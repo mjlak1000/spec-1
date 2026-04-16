@@ -17,12 +17,12 @@ from spec1_engine.schemas.models import (
 from spec1_engine.signal.scorer import SOURCE_CREDIBILITY, DEFAULT_CREDIBILITY
 
 CLASSIFICATION_WEIGHTS: dict[str, float] = {
-    "Corroborated": 1.0,
-    "Escalate": 0.85,
-    "Investigate": 0.70,
-    "Monitor": 0.55,
-    "Conflicted": 0.35,
-    "Archive": 0.15,
+    "CORROBORATED": 1.0,
+    "ESCALATE": 0.85,
+    "INVESTIGATE": 0.70,
+    "MONITOR": 0.55,
+    "CONFLICTED": 0.35,
+    "ARCHIVE": 0.15,
 }
 
 ANALYST_WEIGHT_MAP: dict[str, float] = {

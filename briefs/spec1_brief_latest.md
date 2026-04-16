@@ -1,3 +1,3 @@
 ## SPEC-1 DAILY BRIEF — 2026-04-16
 
-[Brief generation failed. Raw stats: {'run_id': 'run-state-test', 'started_at': '2026-04-16T05:45:33.832185+00:00', 'signals_harvested': 1, 'signals_parsed': 1, 'opportunities_found': 1, 'investigations_generated': 1, 'outcomes_verified': 1, 'records_stored': 1, 'errors': ["psyop:No module named 'spec1_engine.cls_psyop'"], 'finished_at': '2026-04-16T05:45:33.834088+00:00'}]
+[Brief generation failed. Raw stats: {'run_id': 'run-state-test', 'started_at': '2026-04-16T18:44:07.792657+00:00', 'signals_harvested': 1, 'signals_parsed': 1, 'opportunities_found': 1, 'investigations_generated': 1, 'outcomes_verified': 1, 'records_stored': 1, 'errors': ["psyop:No module named 'spec1_engine.cls_psyop'"], 'finished_at': '2026-04-16T18:44:07.794378+00:00'}]

@@ -16,7 +16,7 @@ from cls_osint.sources import OsintSource
 def _make_source(name="test_source", url="https://example.com/feed"):
     return OsintSource(
         name=name,
-        source_type="rss",
+        source_type="RSS",
         url=url,
         credibility=0.8,
         tags=["test"],
@@ -59,7 +59,7 @@ class TestFetchFeed:
         assert len(records) == 1
         assert isinstance(records[0], OSINTRecord)
         assert records[0].source_name == "test_source"
-        assert records[0].source_type == "rss"
+        assert records[0].source_type == "RSS"
         assert "Test Article" in records[0].content
 
     def test_skips_entries_without_title(self):

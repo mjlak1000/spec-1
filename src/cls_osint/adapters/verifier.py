@@ -24,7 +24,7 @@ class VerificationResult:
     corroboration_count: int       # Number of independent sources confirming
     total_sources_checked: int
     corroboration_score: float     # 0–1
-    classification: str            # "Corroborated" | "Partial" | "Unverified" | "Conflicted"
+    classification: str            # "CORROBORATED" | "PARTIAL" | "UNVERIFIED" | "CONFLICTED"
     supporting_urls: list[str] = field(default_factory=list)
     conflicting_urls: list[str] = field(default_factory=list)
     verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -69,12 +69,12 @@ def _text_overlap(claim_kw: set[str], record_text: str) -> float:
 
 def _classify(score: float, count: int) -> str:
     if score >= 0.7 and count >= 2:
-        return "Corroborated"
+        return "CORROBORATED"
     if score >= 0.4 or count >= 2:
-        return "Partial"
+        return "PARTIAL"
     if score > 0 and count >= 1:
-        return "Unverified"
-    return "Unverified"
+        return "UNVERIFIED"
+    return "UNVERIFIED"
 
 
 def verify_claim(

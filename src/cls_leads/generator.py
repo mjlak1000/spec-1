@@ -10,24 +10,24 @@ from cls_leads.schemas import Lead
 # Priority rules: (keywords, priority, category)
 _PRIORITY_RULES: list[tuple[list[str], str, str]] = [
     # CRITICAL
-    (["nuclear", "wmd", "dirty bomb", "radiological", "bioweapon"], "CRITICAL", "military"),
-    (["invasion", "attack", "airstrike", "missile launch", "troops cross"], "CRITICAL", "military"),
-    (["chemical attack", "chlorine", "sarin", "nerve agent"], "CRITICAL", "military"),
+    (["nuclear", "wmd", "dirty bomb", "radiological", "bioweapon"], "CRITICAL", "MILITARY"),
+    (["invasion", "attack", "airstrike", "missile launch", "troops cross"], "CRITICAL", "MILITARY"),
+    (["chemical attack", "chlorine", "sarin", "nerve agent"], "CRITICAL", "MILITARY"),
     # HIGH
-    (["escalation", "mobilization", "troop build", "naval blockade", "no-fly zone"], "HIGH", "military"),
-    (["apt41", "apt10", "volt typhoon", "critical infrastructure hack"], "HIGH", "cyber"),
-    (["election interference", "voter system breach", "campaign hack"], "HIGH", "cyber"),
-    (["sanctions", "asset freeze", "regime change"], "HIGH", "geopolitical"),
-    (["fara", "foreign agent", "lobbying", "undisclosed foreign"], "HIGH", "fara"),
-    (["influence operation", "disinformation campaign", "narrative injection"], "HIGH", "psyop"),
+    (["escalation", "mobilization", "troop build", "naval blockade", "no-fly zone"], "HIGH", "MILITARY"),
+    (["apt41", "apt10", "volt typhoon", "critical infrastructure hack"], "HIGH", "CYBER"),
+    (["election interference", "voter system breach", "campaign hack"], "HIGH", "CYBER"),
+    (["sanctions", "asset freeze", "regime change"], "HIGH", "GEOPOLITICAL"),
+    (["fara", "foreign agent", "lobbying", "undisclosed foreign"], "HIGH", "FARA"),
+    (["influence operation", "disinformation campaign", "narrative injection"], "HIGH", "PSYOP"),
     # MEDIUM
-    (["military exercise", "joint drill", "wargame", "troop deployment"], "MEDIUM", "military"),
-    (["cyber espionage", "data breach", "phishing campaign", "ransomware"], "MEDIUM", "cyber"),
-    (["diplomatic tension", "ambassador recalled", "consulate closed"], "MEDIUM", "geopolitical"),
-    (["propaganda", "state media", "narrative amplification"], "MEDIUM", "psyop"),
-    (["bill introduced", "legislation", "congressional hearing"], "MEDIUM", "geopolitical"),
+    (["military exercise", "joint drill", "wargame", "troop deployment"], "MEDIUM", "MILITARY"),
+    (["cyber espionage", "data breach", "phishing campaign", "ransomware"], "MEDIUM", "CYBER"),
+    (["diplomatic tension", "ambassador recalled", "consulate closed"], "MEDIUM", "GEOPOLITICAL"),
+    (["propaganda", "state media", "narrative amplification"], "MEDIUM", "PSYOP"),
+    (["bill introduced", "legislation", "congressional hearing"], "MEDIUM", "GEOPOLITICAL"),
     # LOW (catch-all)
-    (["report", "analysis", "assessment", "intelligence"], "LOW", "geopolitical"),
+    (["report", "analysis", "assessment", "intelligence"], "LOW", "GEOPOLITICAL"),
 ]
 
 
@@ -37,7 +37,7 @@ def _score_record(text: str) -> tuple[str, str]:
     for keywords, priority, category in _PRIORITY_RULES:
         if any(kw in text_lower for kw in keywords):
             return priority, category
-    return "LOW", "geopolitical"
+    return "LOW", "GEOPOLITICAL"
 
 
 def _build_action_items(priority: str, category: str, text: str) -> list[str]:
@@ -57,10 +57,10 @@ def _build_action_items(priority: str, category: str, text: str) -> list[str]:
         actions.append("File for background monitoring")
 
     category_actions = {
-        "cyber": ["Notify SOC team", "Check for related IOCs"],
-        "fara": ["Review DOJ FARA database for full filing", "Check related registrants"],
-        "psyop": ["Map amplification network", "Assess reach and target audience"],
-        "military": ["Check ORBAT implications", "Review force posture"],
+        "CYBER": ["Notify SOC team", "Check for related IOCs"],
+        "FARA": ["Review DOJ FARA database for full filing", "Check related registrants"],
+        "PSYOP": ["Map amplification network", "Assess reach and target audience"],
+        "MILITARY": ["Check ORBAT implications", "Review force posture"],
     }
     actions.extend(category_actions.get(category, []))
     return actions

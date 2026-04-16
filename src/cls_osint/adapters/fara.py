@@ -118,7 +118,7 @@ def fetch_recent_filings_html(
                 filed_at=filed_at,
                 doc_url=doc_url or RECENT_FILINGS_URL,
                 registration_number="",
-                status="active",
+                status="ACTIVE",
                 metadata={"scraped_from": url},
             )
         )
@@ -167,7 +167,7 @@ def fetch_fara_api(
                 filed_at=filed_at,
                 doc_url=doc_url,
                 registration_number=reg_num,
-                status="active",
+                status="ACTIVE",
                 metadata={"api_item": item},
             )
         )

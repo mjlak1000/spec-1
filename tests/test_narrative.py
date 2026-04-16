@@ -48,19 +48,19 @@ class TestCountThemeHits:
 class TestDetectSentiment:
     def test_negative_sentiment(self):
         sentiment = _detect_sentiment("Massive threat and attack imminent; crisis escalating")
-        assert sentiment == "negative"
+        assert sentiment == "NEGATIVE"
 
     def test_positive_sentiment(self):
         sentiment = _detect_sentiment("Peace agreement reached; diplomatic progress achieved")
-        assert sentiment == "positive"
+        assert sentiment == "POSITIVE"
 
     def test_mixed_sentiment(self):
         sentiment = _detect_sentiment("Peace talks amid ongoing threat and conflict")
-        assert sentiment in ("mixed", "negative", "neutral")
+        assert sentiment in ("MIXED", "NEGATIVE", "NEUTRAL")
 
     def test_neutral_sentiment(self):
         sentiment = _detect_sentiment("The meeting was scheduled for Tuesday.")
-        assert sentiment == "neutral"
+        assert sentiment == "NEUTRAL"
 
 
 class TestDetectAmplifiers:
@@ -151,14 +151,14 @@ class TestDetectNarratives:
             assert n.theme
             assert n.description
             assert 0.0 <= n.reach_score <= 1.0
-            assert n.sentiment in ("positive", "negative", "neutral", "mixed")
+            assert n.sentiment in ("POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED")
 
     def test_narrative_to_osint_record(self):
         records = [_make_record("r1", "China cyber espionage apt41 prc cyber hack")]
         narratives = detect_narratives(records, min_hits=1)
         if narratives:
             osint = narratives[0].to_osint_record()
-            assert osint.source_type == "narrative"
+            assert osint.source_type == "NARRATIVE"
 
 
 class TestAnalyseCorpus:

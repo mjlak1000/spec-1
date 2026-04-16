@@ -71,16 +71,16 @@ def _classify_record_type(title: str, summary: str) -> str:
     """Classify record as bill, resolution, hearing, or amendment."""
     combined = (title + " " + summary).lower()
     if "hearing" in combined:
-        return "hearing"
+        return "HEARING"
     if "joint resolution" in combined or "j.res" in combined.lower():
-        return "resolution"
+        return "RESOLUTION"
     if "concurrent resolution" in combined or "con.res" in combined.lower():
-        return "resolution"
+        return "RESOLUTION"
     if "resolution" in combined:
-        return "resolution"
+        return "RESOLUTION"
     if "amendment" in combined:
-        return "amendment"
-    return "bill"
+        return "AMENDMENT"
+    return "BILL"
 
 
 def _extract_tags(text: str) -> list[str]:
@@ -105,35 +105,35 @@ def _extract_sponsor(summary: str) -> str:
         m = re.search(pat, summary)
         if m:
             return m.group(1)
-    return "Unknown"
+    return "UNKNOWN"
 
 
 def _extract_chamber(title: str, bill_id: str) -> str:
     """Determine chamber from bill ID or title."""
     combined = (title + " " + bill_id).upper()
     if any(x in combined for x in ("H.R.", "H.J.", "H.CON.", "H.RES.")):
-        return "House"
+        return "HOUSE"
     if any(x in combined for x in ("S.", "S.J.", "S.CON.", "S.RES.")):
-        return "Senate"
+        return "SENATE"
     if "HOUSE" in combined:
-        return "House"
+        return "HOUSE"
     if "SENATE" in combined:
-        return "Senate"
-    return "Unknown"
+        return "SENATE"
+    return "UNKNOWN"
 
 
 def _extract_status(summary: str) -> str:
     """Infer bill status from summary text."""
     text = summary.lower()
     if any(kw in text for kw in ("signed into law", "enacted", "became law")):
-        return "enacted"
+        return "ENACTED"
     if "passed senate" in text:
-        return "passed_senate"
+        return "PASSED_SENATE"
     if "passed house" in text:
-        return "passed_house"
+        return "PASSED_HOUSE"
     if any(kw in text for kw in ("failed", "rejected", "defeated", "died")):
-        return "failed"
-    return "introduced"
+        return "FAILED"
+    return "INTRODUCED"
 
 
 def fetch_congress_rss(

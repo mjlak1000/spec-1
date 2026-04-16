@@ -52,7 +52,7 @@ class FaraRecord:
     filed_at: datetime
     doc_url: str
     registration_number: str = ""
-    status: str = "active"       # "active" | "terminated"
+    status: str = "ACTIVE"       # "active" | "terminated"
     metadata: dict = field(default_factory=dict)
 
     @classmethod
@@ -80,7 +80,7 @@ class FaraRecord:
         )
         return OSINTRecord(
             record_id=self.record_id,
-            source_type="fara",
+            source_type="FARA",
             source_name="fara_db",
             content=summary,
             url=self.doc_url,
@@ -94,12 +94,12 @@ class CongressRecord:
     """A US Congressional record (bill, hearing, or resolution)."""
 
     record_id: str
-    record_type: str         # "bill" | "resolution" | "hearing" | "amendment"
+    record_type: str         # BILL | RESOLUTION | HEARING | AMENDMENT
     bill_id: str             # e.g. "H.R.1234" or "S.567"
     title: str
     sponsor: str
-    chamber: str             # "House" | "Senate"
-    status: str              # "introduced" | "passed_house" | "passed_senate" | "enacted" | "failed"
+    chamber: str             # HOUSE | SENATE
+    status: str              # INTRODUCED | PASSED_HOUSE | PASSED_SENATE | ENACTED | FAILED
     date: datetime
     summary: str
     url: str
@@ -130,7 +130,7 @@ class CongressRecord:
         content = f"{self.bill_id}: {self.title}. Sponsor: {self.sponsor}. Status: {self.status}. {self.summary}"
         return OSINTRecord(
             record_id=self.record_id,
-            source_type="congressional",
+            source_type="CONGRESSIONAL",
             source_name="congress_gov",
             content=content,
             url=self.url,
@@ -148,7 +148,7 @@ class NarrativeRecord:
     description: str         # Human-readable summary
     amplifiers: list[str]    # Accounts / outlets amplifying
     reach_score: float       # 0–1 estimated reach
-    sentiment: str           # "positive" | "negative" | "neutral" | "mixed"
+    sentiment: str           # POSITIVE | NEGATIVE | NEUTRAL | MIXED
     source_urls: list[str]
     detected_at: datetime = field(default_factory=_now)
     metadata: dict = field(default_factory=dict)
@@ -178,7 +178,7 @@ class NarrativeRecord:
         )
         return OSINTRecord(
             record_id=self.record_id,
-            source_type="narrative",
+            source_type="NARRATIVE",
             source_name="narrative_tracker",
             content=content,
             url=self.source_urls[0] if self.source_urls else "",

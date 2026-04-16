@@ -87,12 +87,12 @@ def _detect_sentiment(text: str) -> str:
     neg_count = sum(1 for w in negative_words if w in text_lower)
     pos_count = sum(1 for w in positive_words if w in text_lower)
     if neg_count > pos_count + 2:
-        return "negative"
+        return "NEGATIVE"
     if pos_count > neg_count + 2:
-        return "positive"
+        return "POSITIVE"
     if neg_count > 0 and pos_count > 0:
-        return "mixed"
-    return "neutral"
+        return "MIXED"
+    return "NEUTRAL"
 
 
 def _detect_amplifiers(records: list[OSINTRecord], theme_keywords: list[str]) -> list[str]:

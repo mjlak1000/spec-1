@@ -20,7 +20,7 @@ def list_fara(
     registrant: Optional[str] = Query(None),
 ) -> dict:
     """Return FARA records from the OSINT store."""
-    records = list(osint_store.filter_by("source_type", "fara"))
+    records = list(osint_store.filter_by("source_type", "FARA"))
     if country:
         records = [
             r for r in records
