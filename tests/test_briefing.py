@@ -123,39 +123,36 @@ def test_generate_brief_returns_string():
 
 
 def test_generate_brief_contains_executive_summary():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     assert "### Executive Summary" in result
 
 
 def test_generate_brief_contains_all_required_sections():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     for section in REQUIRED_SECTIONS:
         assert section in result, f"Missing section: {section}"
 
 
 def test_generate_brief_story_leads_present_with_elevated():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record(classification="Corroborated", priority="ELEVATED")]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     assert "### Story Leads" in result
 
 
