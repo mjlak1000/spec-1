@@ -10,13 +10,14 @@ import logging
 import os
 from datetime import datetime, timezone
 
-import anthropic
+from dotenv import load_dotenv
+load_dotenv()
 
 from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 2500
 
 # Sources that map to Cyber / Info Ops domain
@@ -104,9 +105,27 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
 
 def _fallback_brief(cycle_stats: dict) -> str:
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    run_id = cycle_stats.get("run_id", "—")
+    harvested = cycle_stats.get("signals_harvested", 0)
+    opportunities = cycle_stats.get("opportunities_found", 0)
+    stored = cycle_stats.get("records_stored", 0)
+    errors = cycle_stats.get("errors", [])
+    finished = cycle_stats.get("finished_at", "—")
+
+    error_block = ""
+    if errors:
+        error_lines = "\n".join(f"  - {e}" for e in errors)
+        error_block = f"\n\n**Harvest errors ({len(errors)}):**\n{error_lines}"
+
     return (
         f"## SPEC-1 DAILY BRIEF — {date_str}\n\n"
-        f"[Brief generation failed. Raw stats: {cycle_stats}]"
+        f"*AI brief unavailable — API key not configured. Cycle stats below.*\n\n"
+        f"**Run:** {run_id}  \n"
+        f"**Completed:** {finished}  \n"
+        f"**Signals harvested:** {harvested}  \n"
+        f"**Opportunities found:** {opportunities}  \n"
+        f"**Records stored:** {stored}"
+        f"{error_block}"
     )
 
 
@@ -125,6 +144,7 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
     prompt = _build_prompt(records, cycle_stats)
 
     try:
+        import anthropic
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,

@@ -193,7 +193,7 @@ def test_generate_brief_no_api_key_returns_fallback():
         os.environ.pop("ANTHROPIC_API_KEY", None)
         result = generate_brief(records, stats)
     assert "## SPEC-1 DAILY BRIEF" in result
-    assert "Brief generation failed" in result
+    assert "API key not configured" in result or "unavailable" in result
 
 
 def test_generate_brief_fallback_contains_date():

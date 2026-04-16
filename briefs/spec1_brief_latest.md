@@ -1,3 +1,18 @@
 ## SPEC-1 DAILY BRIEF — 2026-04-16
 
-[Brief generation failed. Raw stats: {'run_id': 'run-state-test', 'started_at': '2026-04-16T19:32:21.793115+00:00', 'signals_harvested': 1, 'signals_parsed': 1, 'opportunities_found': 1, 'investigations_generated': 1, 'outcomes_verified': 1, 'records_stored': 1, 'errors': ["psyop:No module named 'spec1_engine.cls_psyop'"], 'finished_at': '2026-04-16T19:32:21.794849+00:00'}]
+*AI brief unavailable — API key not configured. Cycle stats below.*
+
+**Run:** run-28eb093ebcd0  
+**Completed:** 2026-04-16T19:38:27.284099+00:00  
+**Signals harvested:** 0  
+**Opportunities found:** 0  
+**Records stored:** 0
+
+**Harvest errors (7):**
+  - harvest:war_on_the_rocks:Failed to parse feed war_on_the_rocks: <unknown>:2:0: syntax error
+  - harvest:cipher_brief:HTTP Error 403: Forbidden
+  - harvest:just_security:Failed to parse feed just_security: <unknown>:2:0: syntax error
+  - harvest:rand:Failed to parse feed rand: <unknown>:2:0: syntax error
+  - harvest:atlantic_council:Failed to parse feed atlantic_council: <unknown>:2:0: syntax error
+  - harvest:defense_one:Failed to parse feed defense_one: <unknown>:2:0: syntax error
+  - psyop:No module named 'spec1_engine.cls_psyop'
