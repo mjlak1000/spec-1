@@ -10,8 +10,8 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from dotenv import load_dotenv
-load_dotenv()
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv(usecwd=True), encoding="utf-8-sig", override=True)
 
 from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
@@ -135,7 +135,7 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
     Returns a markdown string. On any failure returns a fallback brief.
     Never raises.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip().lstrip('\ufeff')
     if not api_key:
         print("[briefing] ANTHROPIC_API_KEY not set in environment — returning fallback brief")
         logger.warning("ANTHROPIC_API_KEY not set — returning fallback brief")

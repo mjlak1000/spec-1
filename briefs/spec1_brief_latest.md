@@ -2,8 +2,8 @@
 
 *AI brief unavailable — API key not configured. Cycle stats below.*
 
-**Run:** run-28eb093ebcd0  
-**Completed:** 2026-04-16T19:38:27.284099+00:00  
+**Run:** run-a87fbe259ce3  
+**Completed:** 2026-04-16T22:20:36.653259+00:00  
 **Signals harvested:** 0  
 **Opportunities found:** 0  
 **Records stored:** 0
