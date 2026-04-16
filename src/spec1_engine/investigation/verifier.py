@@ -11,8 +11,6 @@ import logging
 import os
 import uuid
 
-import anthropic
-
 from spec1_engine.schemas.models import Investigation, Outcome
 
 logger = logging.getLogger(__name__)
@@ -72,6 +70,7 @@ def verify_investigation(investigation: Investigation) -> Outcome:
         return _fallback_outcome()
 
     try:
+        import anthropic  # lazy import — optional dependency
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
