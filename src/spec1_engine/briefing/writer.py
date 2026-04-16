@@ -14,13 +14,17 @@ BRIEFS_DIR = Path("briefs")
 _lock = threading.Lock()
 
 
-def write_brief(brief: str, run_id: str, timestamp: str) -> str:
+def write_brief(brief: str, run_id: str, timestamp: str, prompts: str = "") -> str:
     """Write brief to disk and return the filepath string.
 
     Creates:
-      briefs/spec1_brief_{YYYY-MM-DD}.md  — dated file
-      briefs/spec1_brief_latest.md        — always overwritten
-      briefs/brief_index.jsonl            — append-only index
+      briefs/spec1_brief_{YYYY-MM-DD}.md    — dated file
+      briefs/spec1_brief_latest.md          — always overwritten
+      briefs/brief_index.jsonl              — append-only index
+
+    When *prompts* is non-empty, also creates:
+      briefs/spec1_prompts_{YYYY-MM-DD}.md  — dated prompts artifact
+      briefs/spec1_prompts_latest.md        — always overwritten
     """
     BRIEFS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -50,6 +54,13 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
         }
         with index_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(index_entry) + "\n")
+
+        if prompts:
+            prompts_dated = BRIEFS_DIR / f"spec1_prompts_{date_str}.md"
+            prompts_latest = BRIEFS_DIR / "spec1_prompts_latest.md"
+            prompts_dated.write_text(prompts, encoding="utf-8")
+            prompts_latest.write_text(prompts, encoding="utf-8")
+            logger.info("Prompts written to %s", prompts_dated)
 
     logger.info("Brief written to %s (%d words)", dated_path, word_count)
     return str(dated_path)

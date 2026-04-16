@@ -110,19 +110,23 @@ def _fallback_brief(cycle_stats: dict) -> str:
     )
 
 
-def generate_brief(records: list[dict], cycle_stats: dict) -> str:
+def generate_brief(records: list[dict], cycle_stats: dict) -> tuple[str, str]:
     """Generate the daily intelligence brief via Claude.
 
-    Returns a markdown string. On any failure returns a fallback brief.
+    Returns a (brief, prompts_text) tuple where *brief* is the generated
+    markdown and *prompts_text* is the full prompts payload (system + user)
+    that was sent to the model.  On any failure the brief is a fallback
+    string; prompts_text is still populated when available.
     Never raises.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         print("[briefing] ANTHROPIC_API_KEY not set in environment — returning fallback brief")
         logger.warning("ANTHROPIC_API_KEY not set — returning fallback brief")
-        return _fallback_brief(cycle_stats)
+        return _fallback_brief(cycle_stats), ""
 
-    prompt = _build_prompt(records, cycle_stats)
+    user_prompt = _build_prompt(records, cycle_stats)
+    prompts_text = f"## SYSTEM PROMPT\n\n{SYSTEM_PROMPT.strip()}\n\n---\n\n## USER PROMPT\n\n{user_prompt.strip()}\n"
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
@@ -130,12 +134,12 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
             model=MODEL,
             max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": user_prompt}],
         )
         brief = message.content[0].text.strip()
         logger.info("Brief generated — %d words", len(brief.split()))
-        return brief
+        return brief, prompts_text
     except Exception as exc:
         print(f"[briefing] API call failed: {type(exc).__name__}: {exc}")
         logger.error("Brief generation failed: %s", exc)
-        return _fallback_brief(cycle_stats)
+        return _fallback_brief(cycle_stats), prompts_text

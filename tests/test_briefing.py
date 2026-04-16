@@ -117,9 +117,23 @@ def test_generate_brief_returns_string():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
-    assert isinstance(result, str)
-    assert len(result) > 0
+            brief, prompts = generate_brief(records, stats)
+    assert isinstance(brief, str)
+    assert len(brief) > 0
+
+
+def test_generate_brief_returns_prompts_text():
+    from spec1_engine.briefing.generator import generate_brief
+    records = [make_record()]
+    stats = make_cycle_stats()
+    mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
+    with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        with patch("anthropic.Anthropic") as MockClient:
+            MockClient.return_value.messages.create.return_value = mock_resp
+            brief, prompts = generate_brief(records, stats)
+    assert isinstance(prompts, str)
+    assert "SYSTEM PROMPT" in prompts
+    assert "USER PROMPT" in prompts
 
 
 def test_generate_brief_contains_executive_summary():
@@ -130,8 +144,8 @@ def test_generate_brief_contains_executive_summary():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
-    assert "### Executive Summary" in result
+            brief, _ = generate_brief(records, stats)
+    assert "### Executive Summary" in brief
 
 
 def test_generate_brief_contains_all_required_sections():
@@ -142,9 +156,9 @@ def test_generate_brief_contains_all_required_sections():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+            brief, _ = generate_brief(records, stats)
     for section in REQUIRED_SECTIONS:
-        assert section in result, f"Missing section: {section}"
+        assert section in brief, f"Missing section: {section}"
 
 
 def test_generate_brief_story_leads_present_with_elevated():
@@ -155,8 +169,8 @@ def test_generate_brief_story_leads_present_with_elevated():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
-    assert "### Story Leads" in result
+            brief, _ = generate_brief(records, stats)
+    assert "### Story Leads" in brief
 
 
 def test_generate_brief_api_failure_returns_fallback():
@@ -166,9 +180,9 @@ def test_generate_brief_api_failure_returns_fallback():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.side_effect = Exception("API down")
-            result = generate_brief(records, stats)
-    assert isinstance(result, str)
-    assert "## SPEC-1 DAILY BRIEF" in result
+            brief, _ = generate_brief(records, stats)
+    assert isinstance(brief, str)
+    assert "## SPEC-1 DAILY BRIEF" in brief
 
 
 def test_generate_brief_api_failure_no_exception():
@@ -191,9 +205,10 @@ def test_generate_brief_no_api_key_returns_fallback():
     stats = make_cycle_stats()
     with patch.dict("os.environ", {}, clear=True):
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        result = generate_brief(records, stats)
-    assert "## SPEC-1 DAILY BRIEF" in result
-    assert "Brief generation failed" in result
+        brief, prompts = generate_brief(records, stats)
+    assert "## SPEC-1 DAILY BRIEF" in brief
+    assert "Brief generation failed" in brief
+    assert prompts == ""
 
 
 def test_generate_brief_fallback_contains_date():
@@ -386,6 +401,72 @@ def test_write_brief_creates_dir_if_missing(tmp_path):
         assert not briefs_dir.exists()
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00")
         assert briefs_dir.exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+# ─── writer.py — prompts artifact tests ──────────────────────────────────────
+
+SAMPLE_PROMPTS = "## SYSTEM PROMPT\n\nYou are an editor.\n\n---\n\n## USER PROMPT\n\nWrite a brief.\n"
+
+
+def test_write_brief_with_prompts_creates_dated_prompts_file(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
+        assert (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_with_prompts_creates_latest_prompts_file(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert latest.exists()
+        assert latest.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_with_prompts_dated_file_content(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
+        content = (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").read_text(encoding="utf-8")
+        assert content == SAMPLE_PROMPTS
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_without_prompts_skips_prompts_files(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00")
+        assert not (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
+        assert not (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_latest_overwritten_each_run(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", "first prompts")
+        writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", "second prompts")
+        latest = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
+        assert latest == "second prompts"
     finally:
         writer.BRIEFS_DIR = original_dir
 
