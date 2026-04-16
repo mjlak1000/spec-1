@@ -62,7 +62,7 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
     # Split elevated vs standard
     elevated = [
         r for r in records
-        if r.get("outcome_classification", r.get("classification", "")) in ("Corroborated", "Escalate")
+        if r.get("outcome_classification", r.get("classification", "")) in ("CORROBORATED", "ESCALATE")
     ]
     remaining = [r for r in records if r not in elevated]
     standard_top10 = sorted(

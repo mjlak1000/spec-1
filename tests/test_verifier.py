@@ -53,7 +53,7 @@ def test_fallback_outcome_returns_outcome():
 
 def test_fallback_outcome_classification_is_investigate():
     out = _fallback_outcome()
-    assert out.classification == "Investigate"
+    assert out.classification == "INVESTIGATE"
 
 
 def test_fallback_outcome_confidence_is_zero():
@@ -110,7 +110,7 @@ def test_build_user_prompt_no_leads():
 # ─── Unit: constants ──────────────────────────────────────────────────────────
 
 def test_valid_classifications_complete():
-    expected = {"Corroborated", "Escalate", "Investigate", "Monitor", "Conflicted", "Archive"}
+    expected = {"CORROBORATED", "ESCALATE", "INVESTIGATE", "MONITOR", "CONFLICTED", "ARCHIVE"}
     assert VALID_CLASSIFICATIONS == expected
 
 
@@ -127,7 +127,7 @@ def test_successful_verification_corroborated():
         "verified": True,
         "confidence": 0.87,
         "reasoning": "Multiple authoritative sources corroborate the hypothesis.",
-        "classification": "Corroborated",
+        "classification": "CORROBORATED",
     }
     mock_response = make_mock_response(payload)
 
@@ -139,7 +139,7 @@ def test_successful_verification_corroborated():
             outcome = verify_investigation(inv)
 
     assert isinstance(outcome, Outcome)
-    assert outcome.classification == "Corroborated"
+    assert outcome.classification == "CORROBORATED"
     assert outcome.confidence == pytest.approx(0.87)
     assert outcome.outcome_id.startswith("out-")
 
@@ -151,7 +151,7 @@ def test_successful_verification_escalate():
         "verified": True,
         "confidence": 0.72,
         "reasoning": "Partial corroboration, warrants escalation.",
-        "classification": "Escalate",
+        "classification": "ESCALATE",
     }
     mock_response = make_mock_response(payload)
 
@@ -162,7 +162,7 @@ def test_successful_verification_escalate():
 
             outcome = verify_investigation(inv)
 
-    assert outcome.classification == "Escalate"
+    assert outcome.classification == "ESCALATE"
     assert outcome.confidence == pytest.approx(0.72)
 
 
@@ -174,7 +174,7 @@ def test_successful_verification_evidence_includes_reasoning():
         "verified": True,
         "confidence": 0.90,
         "reasoning": reasoning,
-        "classification": "Corroborated",
+        "classification": "CORROBORATED",
     }
     mock_response = make_mock_response(payload)
 
@@ -195,7 +195,7 @@ def test_successful_verification_verified_false():
         "verified": False,
         "confidence": 0.30,
         "reasoning": "Insufficient evidence to confirm.",
-        "classification": "Monitor",
+        "classification": "MONITOR",
     }
     mock_response = make_mock_response(payload)
 
@@ -206,7 +206,7 @@ def test_successful_verification_verified_false():
 
             outcome = verify_investigation(inv)
 
-    assert outcome.classification == "Monitor"
+    assert outcome.classification == "MONITOR"
     assert outcome.confidence == pytest.approx(0.30)
 
 
@@ -217,7 +217,7 @@ def test_successful_verification_confidence_clamped_high():
         "verified": True,
         "confidence": 1.5,
         "reasoning": "Very high confidence.",
-        "classification": "Corroborated",
+        "classification": "CORROBORATED",
     }
     mock_response = make_mock_response(payload)
 
@@ -238,7 +238,7 @@ def test_successful_verification_confidence_clamped_low():
         "verified": False,
         "confidence": -0.5,
         "reasoning": "No evidence.",
-        "classification": "Archive",
+        "classification": "ARCHIVE",
     }
     mock_response = make_mock_response(payload)
 
@@ -270,7 +270,7 @@ def test_invalid_classification_falls_back_to_investigate():
 
             outcome = verify_investigation(inv)
 
-    assert outcome.classification == "Investigate"
+    assert outcome.classification == "INVESTIGATE"
 
 
 # ─── API failure → fallback, no exception raised ─────────────────────────────
@@ -287,7 +287,7 @@ def test_api_failure_returns_fallback():
             outcome = verify_investigation(inv)
 
     assert isinstance(outcome, Outcome)
-    assert outcome.classification == "Investigate"
+    assert outcome.classification == "INVESTIGATE"
     assert outcome.confidence == 0.0
 
 
@@ -317,7 +317,7 @@ def test_api_rate_limit_returns_fallback():
 
             outcome = verify_investigation(inv)
 
-    assert outcome.classification == "Investigate"
+    assert outcome.classification == "INVESTIGATE"
 
 
 # ─── Malformed JSON response → fallback, no exception raised ─────────────────
@@ -339,7 +339,7 @@ def test_malformed_json_returns_fallback():
             outcome = verify_investigation(inv)
 
     assert isinstance(outcome, Outcome)
-    assert outcome.classification == "Investigate"
+    assert outcome.classification == "INVESTIGATE"
     assert outcome.confidence == 0.0
 
 
@@ -379,7 +379,7 @@ def test_empty_json_object_returns_fallback_values():
 
             outcome = verify_investigation(inv)
 
-    assert outcome.classification == "Investigate"
+    assert outcome.classification == "INVESTIGATE"
     assert outcome.confidence == 0.0
 
 
@@ -398,7 +398,7 @@ def test_no_api_key_returns_fallback():
             outcome = verify_investigation(inv)
             MockClient.assert_not_called()
 
-    assert outcome.classification == "Investigate"
+    assert outcome.classification == "INVESTIGATE"
     assert outcome.confidence == 0.0
 
 

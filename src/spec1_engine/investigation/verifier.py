@@ -11,22 +11,20 @@ import logging
 import os
 import uuid
 
-import anthropic
-
 from spec1_engine.schemas.models import Investigation, Outcome
 
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-haiku-4-5-20251001"
 VALID_CLASSIFICATIONS = {
-    "Corroborated", "Escalate", "Investigate", "Monitor", "Conflicted", "Archive"
+    "CORROBORATED", "ESCALATE", "INVESTIGATE", "MONITOR", "CONFLICTED", "ARCHIVE"
 }
 
 _SYSTEM_PROMPT = (
     "You are an intelligence analyst verifying a hypothesis. "
     "Respond with JSON only — no prose, no markdown fences. "
     'Schema: {"verified": bool, "confidence": float, "reasoning": str, '
-    '"classification": "Corroborated"|"Escalate"|"Investigate"|"Monitor"|"Conflicted"|"Archive"}'
+    '"classification": "CORROBORATED"|"ESCALATE"|"INVESTIGATE"|"MONITOR"|"CONFLICTED"|"ARCHIVE"}'
 )
 
 
@@ -58,7 +56,7 @@ def _build_user_prompt(investigation: Investigation) -> str:
 def _fallback_outcome() -> Outcome:
     return Outcome(
         outcome_id=f"out-{uuid.uuid4().hex[:12]}",
-        classification="Investigate",
+        classification="INVESTIGATE",
         confidence=0.0,
         evidence=["Fallback: API error or parse failure — manual review required."],
     )
@@ -72,6 +70,7 @@ def verify_investigation(investigation: Investigation) -> Outcome:
         return _fallback_outcome()
 
     try:
+        import anthropic  # lazy import — optional dependency
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
@@ -99,9 +98,9 @@ def verify_investigation(investigation: Investigation) -> Outcome:
 
     try:
         data = json.loads(raw)
-        classification = data.get("classification", "Investigate")
+        classification = data.get("classification", "INVESTIGATE")
         if classification not in VALID_CLASSIFICATIONS:
-            classification = "Investigate"
+            classification = "INVESTIGATE"
         confidence = float(data.get("confidence", 0.0))
         confidence = round(min(max(confidence, 0.0), 1.0), 4)
         verified = bool(data.get("verified", False))

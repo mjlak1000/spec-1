@@ -8,8 +8,14 @@ from __future__ import annotations
 
 import logging
 
-import pandas as pd
-import yfinance as yf
+try:
+    import pandas as pd
+    import yfinance as yf
+    _YFINANCE_AVAILABLE = True
+except ImportError:
+    pd = None  # type: ignore[assignment]
+    yf = None  # type: ignore[assignment]
+    _YFINANCE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +43,13 @@ def fetch_ohlcv(
     ticker: str,
     period: str = "3mo",
     interval: str = "1d",
-) -> pd.DataFrame:
+):
     """Fetch OHLCV DataFrame for a single ticker.
 
     Returns an empty DataFrame on any yfinance error.
     """
+    if not _YFINANCE_AVAILABLE:
+        return pd.DataFrame() if pd else type("DF", (), {"empty": True})()
     try:
         df = yf.download(
             ticker,
