@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -176,8 +176,8 @@ class CaseFile:
     question: str
     tags: list[str] = field(default_factory=list)
     status: str = "OPEN"  # OPEN | CLOSED | WATCHING
-    opened_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    opened_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     signal_ids: list[str] = field(default_factory=list)
     findings: list[str] = field(default_factory=list)
     research_runs: int = 0
