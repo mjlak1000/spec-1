@@ -503,6 +503,64 @@ def test_brief_index_returns_newest_first(api_client, tmp_path):
     assert data[-1]["run_id"] == "run-1"
 
 
+# ─── writer.py — prompts artifact tests ──────────────────────────────────────
+
+SAMPLE_PROMPTS = "## SYSTEM PROMPT\n\nYou are an intelligence editor.\n"
+
+
+def test_write_brief_creates_prompts_files_when_provided(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts=SAMPLE_PROMPTS)
+        dated = writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md"
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert dated.exists()
+        assert latest.exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_file_content(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts=SAMPLE_PROMPTS)
+        dated = writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md"
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert dated.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+        assert latest.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_no_prompts_files_when_not_provided(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00")
+        assert not (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
+        assert not (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_latest_overwritten(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts="first prompts")
+        writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", prompts="second prompts")
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert latest.read_text(encoding="utf-8") == "second prompts"
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
 # ─── writer.py invalid timestamp fallback test ────────────────────────────────
 
 def test_write_brief_invalid_timestamp_falls_back_to_today(tmp_path):
