@@ -530,20 +530,22 @@ def test_write_brief_prompts_file_content(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts=SAMPLE_PROMPTS)
         dated = writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md"
         latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
-        assert dated.read_text(encoding="utf-8") == SAMPLE_PROMPTS
-        assert latest.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+        # Content is now built by _build_prompts_doc (PR's extraction approach)
+        assert "SPEC-1 Investigation Prompts" in dated.read_text(encoding="utf-8")
+        assert "SPEC-1 Investigation Prompts" in latest.read_text(encoding="utf-8")
     finally:
         writer.BRIEFS_DIR = original_dir
 
 
-def test_write_brief_no_prompts_files_when_not_provided(tmp_path):
+def test_write_brief_prompts_files_always_created(tmp_path):
+    """write_brief always creates prompts files (PR behaviour — extraction from brief)."""
     from spec1_engine.briefing import writer
     original_dir = writer.BRIEFS_DIR
     writer.BRIEFS_DIR = tmp_path / "briefs"
     try:
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00")
-        assert not (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
-        assert not (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
+        assert (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
+        assert (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
     finally:
         writer.BRIEFS_DIR = original_dir
 
@@ -556,7 +558,8 @@ def test_write_brief_prompts_latest_overwritten(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts="first prompts")
         writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", prompts="second prompts")
         latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
-        assert latest.read_text(encoding="utf-8") == "second prompts"
+        # latest is always overwritten; content is extracted from brief
+        assert "SPEC-1 Investigation Prompts — 2026-04-12" in latest.read_text(encoding="utf-8")
     finally:
         writer.BRIEFS_DIR = original_dir
 
@@ -576,3 +579,198 @@ def test_write_brief_invalid_timestamp_falls_back_to_today(tmp_path):
         assert Path(path).exists()
     finally:
         writer.BRIEFS_DIR = original_dir
+
+
+# ─── _extract_prompts — unit tests ───────────────────────────────────────────
+
+SAMPLE_BRIEF_WITH_PROMPTS = "\n".join([
+    "## SPEC-1 DAILY BRIEF — 2026-04-12",
+    "",
+    "### Story Leads",
+    "",
+    "**LEAD: Pentagon Budget Leak**",
+    "Signal: defense_one | pattern | confidence=0.82 | classification=Escalate",
+    "The question: Who authorised the disclosure?",
+    "Who to call: DoD spokesperson",
+    "Documents to request: OSD budget filings FY2026",
+    "Window: 48hrs",
+    "Confidence: HIGH",
+    "",
+    "> **CLAUDE PROMPT:**",
+    '> "You are an investigative journalist working this lead: Pentagon Budget Leak.',
+    ">  The signal: defense_one, pattern, confidence=0.82.",
+    ">  The core question: Who authorised the disclosure?",
+    ">",
+    ">  Step 1 — Draft a 3-paragraph background memo.",
+    ">",
+    ">  Step 2 — Write 5 specific questions for DoD spokesperson.",
+    ">",
+    ">  Step 3 — Write a FOIA request draft targeting OSD budget filings FY2026.",
+    ">",
+    '> Step 4 — Write a 150-word pitch memo for an editor meeting."',
+    "",
+    "**LEAD: Cyber Intrusion Pattern**",
+    "Signal: cipher_brief | pattern | confidence=0.71 | classification=Investigate",
+    "The question: Is this linked to prior campaigns?",
+    "Who to call: CISA analyst",
+    "Documents to request: DHS incident reports 2025-2026",
+    "Window: 3 days",
+    "Confidence: MEDIUM",
+    "",
+    "> **CLAUDE PROMPT:**",
+    '> "You are an investigative journalist working this lead: Cyber Intrusion Pattern.',
+    ">  The signal: cipher_brief, pattern, confidence=0.71.",
+    ">  The core question: Is this linked to prior campaigns?",
+    ">",
+    ">  Step 1 — Draft a 3-paragraph background memo.",
+    ">",
+    ">  Step 2 — Write 5 specific questions for CISA analyst.",
+    ">",
+    ">  Step 3 — Write a FOIA request draft targeting DHS incident reports 2025-2026.",
+    ">",
+    '> Step 4 — Write a 150-word pitch memo for an editor meeting."',
+])
+
+
+def test_extract_prompts_empty_when_no_blocks():
+    from spec1_engine.briefing.writer import _extract_prompts
+    result = _extract_prompts(SAMPLE_BRIEF)
+    assert result == []
+
+
+def test_extract_prompts_finds_all_blocks():
+    from spec1_engine.briefing.writer import _extract_prompts
+    result = _extract_prompts(SAMPLE_BRIEF_WITH_PROMPTS)
+    assert len(result) == 2
+
+
+def test_extract_prompts_each_block_starts_with_marker():
+    from spec1_engine.briefing.writer import _extract_prompts
+    result = _extract_prompts(SAMPLE_BRIEF_WITH_PROMPTS)
+    for block in result:
+        assert "**CLAUDE PROMPT:**" in block
+
+
+def test_extract_prompts_block_contains_lead_title():
+    from spec1_engine.briefing.writer import _extract_prompts
+    result = _extract_prompts(SAMPLE_BRIEF_WITH_PROMPTS)
+    assert any("Pentagon Budget Leak" in b for b in result)
+    assert any("Cyber Intrusion Pattern" in b for b in result)
+
+
+# ─── writer.py — prompts file tests ──────────────────────────────────────────
+
+def test_write_brief_creates_prompts_latest_file(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-12T06:00:00+00:00")
+        prompts_latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert prompts_latest.exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_creates_prompts_dated_file(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-12T06:00:00+00:00")
+        prompts_dated = writer.BRIEFS_DIR / "spec1_prompts_2026-04-12.md"
+        assert prompts_dated.exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_doc_contains_header(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-12T06:00:00+00:00")
+        content = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
+        assert "# SPEC-1 Investigation Prompts" in content
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_doc_with_blocks(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF_WITH_PROMPTS, "run-002", "2026-04-12T06:00:00+00:00")
+        content = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
+        assert "## Prompt 1" in content
+        assert "## Prompt 2" in content
+        assert "**CLAUDE PROMPT:**" in content
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_doc_no_blocks_placeholder(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-12T06:00:00+00:00")
+        content = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
+        assert "No Claude investigation prompts" in content
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+# ─── API routes — /brief/prompts/latest endpoint ─────────────────────────────
+
+def test_brief_prompts_latest_404_when_no_file(api_client, tmp_path):
+    import spec1_engine.briefing.writer as _w
+    empty = tmp_path / "empty_prompts"
+    empty.mkdir()
+    with patch.object(_w, "BRIEFS_DIR", empty):
+        r = api_client.get("/api/v1/brief/prompts/latest")
+    assert r.status_code == 404
+
+
+def test_brief_prompts_latest_200_when_file_exists(api_client, tmp_path):
+    import spec1_engine.briefing.writer as _w
+    briefs_dir = tmp_path / "briefs_prompts_ok"
+    briefs_dir.mkdir()
+    # Write prompts file and an index entry
+    prompts_content = (
+        "# SPEC-1 Investigation Prompts — 2026-04-12\nGenerated: 2026-04-12T06:00:00+00:00\n\n"
+        "## Prompt 1\n\n> **CLAUDE PROMPT:**\n> \"Test prompt.\"\n"
+    )
+    (briefs_dir / "spec1_prompts_latest.md").write_text(prompts_content, encoding="utf-8")
+    (briefs_dir / "brief_index.jsonl").write_text(
+        json.dumps({"run_id": "run-p", "date": "2026-04-12",
+                    "filepath": "x", "word_count": 10, "timestamp": "2026-04-12T06:00:00+00:00"}) + "\n",
+        encoding="utf-8",
+    )
+    with patch.object(_w, "BRIEFS_DIR", briefs_dir):
+        r = api_client.get("/api/v1/brief/prompts/latest")
+    assert r.status_code == 200
+    data = r.json()
+    assert "prompts" in data
+    assert "date" in data
+    assert "lead_count" in data
+    assert data["date"] == "2026-04-12"
+    assert data["lead_count"] == 1
+
+
+def test_brief_prompts_latest_lead_count_correct(api_client, tmp_path):
+    import spec1_engine.briefing.writer as _w
+    briefs_dir = tmp_path / "briefs_prompts_count"
+    briefs_dir.mkdir()
+    prompts_content = (
+        "# SPEC-1 Investigation Prompts — 2026-04-12\n\n"
+        "## Prompt 1\n\n> **CLAUDE PROMPT:**\n> \"First.\"\n\n"
+        "## Prompt 2\n\n> **CLAUDE PROMPT:**\n> \"Second.\"\n\n"
+        "## Prompt 3\n\n> **CLAUDE PROMPT:**\n> \"Third.\"\n"
+    )
+    (briefs_dir / "spec1_prompts_latest.md").write_text(prompts_content, encoding="utf-8")
+    with patch.object(_w, "BRIEFS_DIR", briefs_dir):
+        r = api_client.get("/api/v1/brief/prompts/latest")
+    assert r.status_code == 200
+    assert r.json()["lead_count"] == 3
