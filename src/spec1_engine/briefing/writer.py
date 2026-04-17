@@ -58,7 +58,7 @@ def write_brief(
     brief: str,
     run_id: str,
     timestamp: str,
-    prompts: str | None = None,  # noqa: ARG001 — accepted for backward compat
+    prompts: str | None = None,  # accepted for backward compat with callers that pass the API prompts text
 ) -> str:
     """Write brief to disk and return the filepath string.
 

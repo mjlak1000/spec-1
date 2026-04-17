@@ -538,7 +538,7 @@ def test_write_brief_prompts_file_content(tmp_path):
 
 
 def test_write_brief_prompts_files_always_created(tmp_path):
-    """write_brief always creates prompts files (PR behaviour — extraction from brief)."""
+    """write_brief always creates prompts files (extraction from brief)."""
     from spec1_engine.briefing import writer
     original_dir = writer.BRIEFS_DIR
     writer.BRIEFS_DIR = tmp_path / "briefs"
