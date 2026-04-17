@@ -117,7 +117,7 @@ def test_generate_brief_returns_string():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            brief, prompts = generate_brief(records, stats)
+            brief, prompts = generator.generate_brief(records, stats)
     assert isinstance(brief, str)
     assert len(brief) > 0
 
@@ -144,7 +144,7 @@ def test_generate_brief_contains_executive_summary():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            brief, _ = generate_brief(records, stats)
+            brief, _ = generator.generate_brief(records, stats)
     assert "### Executive Summary" in brief
 
 
@@ -156,7 +156,7 @@ def test_generate_brief_contains_all_required_sections():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            brief, _ = generate_brief(records, stats)
+            brief, _ = generator.generate_brief(records, stats)
     for section in REQUIRED_SECTIONS:
         assert section in brief, f"Missing section: {section}"
 
@@ -169,7 +169,7 @@ def test_generate_brief_story_leads_present_with_elevated():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.return_value = mock_resp
-            brief, _ = generate_brief(records, stats)
+            brief, _ = generator.generate_brief(records, stats)
     assert "### Story Leads" in brief
 
 
@@ -180,7 +180,7 @@ def test_generate_brief_api_failure_returns_fallback():
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
         with patch("anthropic.Anthropic") as MockClient:
             MockClient.return_value.messages.create.side_effect = Exception("API down")
-            brief, _ = generate_brief(records, stats)
+            brief, _ = generator.generate_brief(records, stats)
     assert isinstance(brief, str)
     assert "## SPEC-1 DAILY BRIEF" in brief
 
