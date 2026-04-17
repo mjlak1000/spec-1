@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 4000
 
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
 # Sources that map to Cyber / Info Ops domain
 _CYBER_SOURCES = {
     "cipher_brief", "just_security", "lawfare",
