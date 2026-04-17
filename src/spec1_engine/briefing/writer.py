@@ -54,7 +54,12 @@ def _build_prompts_doc(prompts: list[str], date_str: str, timestamp: str) -> str
     return "\n".join(lines)
 
 
-def write_brief(brief: str, run_id: str, timestamp: str) -> str:
+def write_brief(
+    brief: str,
+    run_id: str,
+    timestamp: str,
+    prompts: str | None = None,
+) -> str:
     """Write brief to disk and return the filepath string.
 
     Creates:
@@ -63,6 +68,10 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
       briefs/spec1_prompts_{YYYY-MM-DD}.md  — investigation prompts only
       briefs/spec1_prompts_latest.md        — always overwritten
       briefs/brief_index.jsonl              — append-only index
+
+    When *prompts* is supplied it is written directly to the prompts files;
+    otherwise prompts are extracted from the brief using
+    _extract_prompts/_build_prompts_doc.
     """
     BRIEFS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -81,9 +90,14 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
 
     word_count = len(brief.split())
 
-    # Extract and format prompts
-    prompts = _extract_prompts(brief)
-    prompts_doc = _build_prompts_doc(prompts, date_str, timestamp)
+    # Build prompts content: use provided string or extract from brief
+    if prompts is not None:
+        prompts_doc = prompts
+        prompt_count = prompts.count("**CLAUDE PROMPT:**")
+    else:
+        extracted = _extract_prompts(brief)
+        prompts_doc = _build_prompts_doc(extracted, date_str, timestamp)
+        prompt_count = len(extracted)
 
     with _lock:
         dated_path.write_text(brief, encoding="utf-8")
@@ -101,5 +115,5 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
         with index_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(index_entry) + "\n")
 
-    logger.info("Brief written to %s (%d words, %d prompts)", dated_path, word_count, len(prompts))
+    logger.info("Brief written to %s (%d words, %d prompts)", dated_path, word_count, prompt_count)
     return str(dated_path)

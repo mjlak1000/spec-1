@@ -7,7 +7,7 @@ Usage:
 from __future__ import annotations
 
 from dotenv import load_dotenv
-load_dotenv()  # loads .env from cwd if present
+load_dotenv(encoding="utf-8-sig")  # utf-8-sig strips PowerShell BOM if present
 
 import uvicorn
 

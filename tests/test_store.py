@@ -24,7 +24,7 @@ def sample_record() -> dict:
     return {
         "record_id": "rec-abc123",
         "pattern": "test pattern",
-        "classification": "Monitor",
+        "classification": "MONITOR",
         "confidence": 0.72,
         "source_weight": 0.85,
         "analyst_weight": 0.80,
@@ -142,12 +142,12 @@ def test_append_batch_raises_on_non_dict_in_list(tmp_store):
 # ─── Filter ──────────────────────────────────────────────────────────────────
 
 def test_filter_by_returns_matching(tmp_store, sample_record):
-    tmp_store.append({**sample_record, "classification": "Escalate", "record_id": "r1"})
-    tmp_store.append({**sample_record, "classification": "Monitor", "record_id": "r2"})
-    tmp_store.append({**sample_record, "classification": "Escalate", "record_id": "r3"})
-    matches = list(tmp_store.filter_by("classification", "Escalate"))
+    tmp_store.append({**sample_record, "classification": "ESCALATE", "record_id": "r1"})
+    tmp_store.append({**sample_record, "classification": "MONITOR", "record_id": "r2"})
+    tmp_store.append({**sample_record, "classification": "ESCALATE", "record_id": "r3"})
+    matches = list(tmp_store.filter_by("classification", "ESCALATE"))
     assert len(matches) == 2
-    assert all(r["classification"] == "Escalate" for r in matches)
+    assert all(r["classification"] == "ESCALATE" for r in matches)
 
 
 def test_filter_by_no_match_returns_empty(tmp_store, sample_record):

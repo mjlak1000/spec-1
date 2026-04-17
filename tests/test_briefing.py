@@ -110,76 +110,70 @@ def make_mock_claude_response(text: str) -> MagicMock:
 # ─── generator.py — unit tests ────────────────────────────────────────────────
 
 def test_generate_brief_returns_string():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     assert isinstance(result, str)
     assert len(result) > 0
 
 
 def test_generate_brief_contains_executive_summary():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     assert "### Executive Summary" in result
 
 
 def test_generate_brief_contains_all_required_sections():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     for section in REQUIRED_SECTIONS:
         assert section in result, f"Missing section: {section}"
 
 
 def test_generate_brief_story_leads_present_with_elevated():
-    from spec1_engine.briefing.generator import generate_brief
-    records = [make_record(classification="Corroborated", priority="ELEVATED")]
+    from spec1_engine.briefing import generator
+    records = [make_record(classification="CORROBORATED", priority="ELEVATED")]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     assert "### Story Leads" in result
 
 
 def test_generate_brief_api_failure_returns_fallback():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.side_effect = Exception("API down")
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", side_effect=Exception("API down")):
+            result = generator.generate_brief(records, stats)
     assert isinstance(result, str)
     assert "## SPEC-1 DAILY BRIEF" in result
 
 
 def test_generate_brief_api_failure_no_exception():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.side_effect = RuntimeError("timeout")
+        with patch.object(generator.client.messages, "create", side_effect=RuntimeError("timeout")):
             try:
-                generate_brief(records, stats)
+                generator.generate_brief(records, stats)
             except Exception as exc:
                 pytest.fail(f"generate_brief raised: {exc}")
 
@@ -193,7 +187,7 @@ def test_generate_brief_no_api_key_returns_fallback():
         os.environ.pop("ANTHROPIC_API_KEY", None)
         result = generate_brief(records, stats)
     assert "## SPEC-1 DAILY BRIEF" in result
-    assert "Brief generation failed" in result
+    assert "API key not configured" in result or "unavailable" in result
 
 
 def test_generate_brief_fallback_contains_date():
@@ -207,9 +201,9 @@ def test_generate_brief_fallback_contains_date():
 def test_generate_brief_elevated_count_in_prompt():
     from spec1_engine.briefing.generator import _build_prompt
     records = [
-        make_record(classification="Corroborated"),
-        make_record(classification="Escalate", source="rand"),
-        make_record(classification="Investigate", source="defense_one"),
+        make_record(classification="CORROBORATED"),
+        make_record(classification="ESCALATE", source="rand"),
+        make_record(classification="INVESTIGATE", source="defense_one"),
     ]
     stats = make_cycle_stats()
     prompt = _build_prompt(records, stats)
@@ -256,9 +250,9 @@ def test_format_record_contains_confidence():
 
 def test_format_record_contains_classification():
     from spec1_engine.briefing.generator import _format_record
-    rec = make_record(classification="Escalate")
+    rec = make_record(classification="ESCALATE")
     result = _format_record(rec)
-    assert "classification=Escalate" in result
+    assert "classification=ESCALATE" in result
 
 
 def test_classify_domain_cyber():
@@ -501,6 +495,52 @@ def test_brief_index_returns_newest_first(api_client, tmp_path):
     data = r.json()
     assert data[0]["run_id"] == "run-3"
     assert data[-1]["run_id"] == "run-1"
+
+
+# ─── writer.py — prompts artifact tests ──────────────────────────────────────
+
+SAMPLE_PROMPTS = "## SYSTEM PROMPT\n\nYou are an intelligence editor.\n"
+
+
+def test_write_brief_creates_prompts_files_when_provided(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts=SAMPLE_PROMPTS)
+        dated = writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md"
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert dated.exists()
+        assert latest.exists()
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_file_content(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts=SAMPLE_PROMPTS)
+        dated = writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md"
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert dated.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+        assert latest.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+    finally:
+        writer.BRIEFS_DIR = original_dir
+
+
+def test_write_brief_prompts_latest_overwritten(tmp_path):
+    from spec1_engine.briefing import writer
+    original_dir = writer.BRIEFS_DIR
+    writer.BRIEFS_DIR = tmp_path / "briefs"
+    try:
+        writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", prompts="first prompts")
+        writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", prompts="second prompts")
+        latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
+        assert latest.read_text(encoding="utf-8") == "second prompts"
+    finally:
+        writer.BRIEFS_DIR = original_dir
 
 
 # ─── writer.py invalid timestamp fallback test ────────────────────────────────
