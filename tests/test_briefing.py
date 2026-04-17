@@ -190,7 +190,8 @@ def test_generate_brief_api_failure_no_exception():
     records = [make_record()]
     stats = make_cycle_stats()
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch.object(generator.client.messages, "create", side_effect=RuntimeError("timeout")):
+        with patch("anthropic.Anthropic") as MockClient:
+            MockClient.return_value.messages.create.side_effect = RuntimeError("timeout")
             try:
                 generator.generate_brief(records, stats)
             except Exception as exc:
