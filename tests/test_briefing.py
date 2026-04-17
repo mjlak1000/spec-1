@@ -207,7 +207,7 @@ def test_generate_brief_no_api_key_returns_fallback():
         os.environ.pop("ANTHROPIC_API_KEY", None)
         brief, prompts = generate_brief(records, stats)
     assert "## SPEC-1 DAILY BRIEF" in brief
-    assert "Brief generation failed" in brief
+    assert "AI brief unavailable" in brief
     assert prompts == ""
 
 
@@ -478,6 +478,7 @@ def test_write_brief_prompts_latest_overwritten_each_run(tmp_path):
 
 @pytest.fixture(scope="module")
 def api_client():
+    import spec1_engine.api.app  # pre-import so patch can resolve the module
     with patch("spec1_engine.api.app.build_scheduler") as mock_build, \
          patch("spec1_engine.api.app.maybe_run_on_start"):
         mock_sched = MagicMock()
