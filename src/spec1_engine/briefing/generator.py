@@ -125,10 +125,11 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> tuple[str, str]:
         logger.warning("ANTHROPIC_API_KEY not set — returning fallback brief")
         return _fallback_brief(cycle_stats), ""
 
-    user_prompt = _build_prompt(records, cycle_stats)
-    prompts_text = f"## SYSTEM PROMPT\n\n{SYSTEM_PROMPT.strip()}\n\n---\n\n## USER PROMPT\n\n{user_prompt.strip()}\n"
+    prompts_text = ""
 
     try:
+        user_prompt = _build_prompt(records, cycle_stats)
+        prompts_text = f"## SYSTEM PROMPT\n\n{SYSTEM_PROMPT.strip()}\n\n---\n\n## USER PROMPT\n\n{user_prompt.strip()}\n"
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
