@@ -5,8 +5,13 @@ Falls back to a raw-stats brief on any API error — never crashes the cycle.
 """
 
 import os
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
 
 import logging
 from datetime import datetime, timezone
