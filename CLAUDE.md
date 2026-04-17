@@ -19,11 +19,20 @@ spec-1/
 ├── src/
 │   ├── spec1_engine/        # Core OSINT pipeline (harvest → score → investigate → store)
 │   │   ├── schemas/models.py
-│   │   ├── core/engine.py
+│   │   ├── core/
+│   │   │   ├── engine.py
+│   │   │   ├── ids.py
+│   │   │   └── logging_utils.py
 │   │   ├── signal/          # harvester, parser, scorer
 │   │   ├── investigation/   # generator, verifier
 │   │   ├── intelligence/    # analyzer, store
-│   │   └── app/cycle.py
+│   │   ├── analysts/        # credibility weighting, source discovery, registry
+│   │   ├── briefing/        # generator, templates, writer
+│   │   ├── quant/           # analyzer, collector, cycle, parser, scorer
+│   │   ├── workspace/       # case tracking, researcher, CLI (__main__.py)
+│   │   ├── api/             # internal API app, routes, scheduler
+│   │   ├── app/cycle.py
+│   │   └── main.py
 │   │
 │   ├── cls_osint/           # Extended OSINT adapters
 │   │   ├── schemas.py       # OSINTRecord, FaraRecord, CongressRecord, NarrativeRecord
@@ -72,20 +81,22 @@ spec-1/
 │   │   ├── dual_write.py    # Write to JSONL + SQLite atomically
 │   │   └── migrate.py       # Schema migration runner
 │   │
-│   └── spec1_api/           # FastAPI application
-│       ├── main.py          # App factory + lifespan
-│       ├── scheduler.py     # APScheduler daily cycle
-│       ├── dependencies.py  # Dependency injection (store, db, engine)
-│       ├── schemas.py       # Pydantic request/response models
-│       └── routers/
-│           ├── health.py    # GET /health
-│           ├── signals.py   # GET /signals
-│           ├── intel.py     # GET /intel
-│           ├── leads.py     # GET /leads, POST /leads
-│           ├── brief.py     # GET /brief
-│           ├── psyop.py     # GET /psyop
-│           ├── fara.py      # GET /fara
-│           └── cycle.py     # POST /cycle/run
+│   ├── spec1_api/           # FastAPI application
+│   │   ├── main.py          # App factory + lifespan
+│   │   ├── scheduler.py     # APScheduler daily cycle
+│   │   ├── dependencies.py  # Dependency injection (store, db, engine)
+│   │   ├── schemas.py       # Pydantic request/response models
+│   │   └── routers/
+│   │       ├── health.py    # GET /health
+│   │       ├── signals.py   # GET /signals
+│   │       ├── intel.py     # GET /intel
+│   │       ├── leads.py     # GET /leads, POST /leads
+│   │       ├── brief.py     # GET /brief
+│   │       ├── psyop.py     # GET /psyop
+│   │       ├── fara.py      # GET /fara
+│   │       └── cycle.py     # POST /cycle/run
+│   │
+│   └── spec1_labels.py      # Shared label/category constants
 │
 ├── tests/                   # pytest test suite
 │   ├── test_engine.py       # Core engine pipeline
@@ -94,19 +105,29 @@ spec-1/
 │   ├── test_fara.py         # FARA adapter
 │   ├── test_congressional.py
 │   ├── test_narrative.py
+│   ├── test_verifier.py     # Cross-source verifier
+│   ├── test_harvester.py    # Signal harvester
+│   ├── test_analysts.py     # Analyst credibility + discovery
+│   ├── test_briefing.py     # Briefing generation
+│   ├── test_cycle.py        # Full cycle integration
 │   ├── test_world_brief.py
 │   ├── test_leads.py
 │   ├── test_psyop.py
 │   ├── test_quant.py
+│   ├── test_workspace.py    # Case management workspace
+│   ├── test_store.py        # Store persistence
+│   ├── test_logging_utils.py
 │   ├── test_persistence.py  # cls_db dual-write
 │   ├── test_api.py          # FastAPI endpoints
 │   └── test_mcp_server.py   # MCP server tools
 │
+├── briefs/                  # Generated brief output files (.md)
 ├── mcp_server.py            # MCP server exposing SPEC-1 tools to Claude
 ├── pyproject.toml
 ├── requirements.txt
 ├── .env.example
 ├── CLAUDE.md
+├── PORTFOLIO_SUMMARY.md     # High-level project overview for stakeholders
 └── README.md
 ```
 
@@ -204,6 +225,11 @@ SPEC1_LOG_LEVEL=INFO
 ANTHROPIC_API_KEY=sk-ant-...
 SPEC1_API_HOST=0.0.0.0
 SPEC1_API_PORT=8000
+SPEC1_CRON_HOUR=6
+SPEC1_CRON_MINUTE=0
+SPEC1_TIMEZONE=America/Los_Angeles
+SPEC1_FEED_TIMEOUT=15
+SPEC1_QUANT_ENABLED=false
 ```
 
 ## Running the System
@@ -217,6 +243,9 @@ python -m spec1_api.main
 
 # MCP server (for Claude integration)
 python mcp_server.py
+
+# Workspace CLI (case management)
+python -m spec1_engine.workspace
 ```
 
 ## Testing
