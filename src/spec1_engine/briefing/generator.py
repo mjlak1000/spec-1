@@ -18,7 +18,7 @@ from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 2500
+MAX_TOKENS = 3000
 
 # Sources that map to Cyber / Info Ops domain
 _CYBER_SOURCES = {
