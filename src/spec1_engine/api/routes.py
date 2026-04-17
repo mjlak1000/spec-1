@@ -139,9 +139,16 @@ def brief_prompts_latest() -> dict:
     index_path = briefs_dir / "brief_index.jsonl"
     date_str = None
     if index_path.exists():
-        lines = [ln.strip() for ln in index_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-        if lines:
-            last = json.loads(lines[-1])
+        last = None
+        for line in index_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                last = json.loads(line)
+            except json.JSONDecodeError:
+                pass
+        if last:
             date_str = last.get("date")
     return {"prompts": prompts_text, "date": date_str, "lead_count": lead_count}
 
