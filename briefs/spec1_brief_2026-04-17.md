@@ -2,17 +2,11 @@
 
 *AI brief unavailable — API key not configured. Cycle stats below.*
 
-**Run:** run-4dbc249f5d47  
-**Completed:** 2026-04-17T00:05:12.473517+00:00  
-**Signals harvested:** 0  
-**Opportunities found:** 0  
-**Records stored:** 0
+**Run:** run-state-test  
+**Completed:** 2026-04-17T17:03:09.763833+00:00  
+**Signals harvested:** 1  
+**Opportunities found:** 1  
+**Records stored:** 1
 
-**Harvest errors (7):**
-  - harvest:war_on_the_rocks:Failed to parse feed war_on_the_rocks: <unknown>:2:0: syntax error
-  - harvest:cipher_brief:HTTP Error 403: Forbidden
-  - harvest:just_security:Failed to parse feed just_security: <unknown>:2:0: syntax error
-  - harvest:rand:Failed to parse feed rand: <unknown>:2:0: syntax error
-  - harvest:atlantic_council:Failed to parse feed atlantic_council: <unknown>:2:0: syntax error
-  - harvest:defense_one:Failed to parse feed defense_one: <unknown>:2:0: syntax error
+**Harvest errors (1):**
   - psyop:No module named 'spec1_engine.cls_psyop'

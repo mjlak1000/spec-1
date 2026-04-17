@@ -95,7 +95,7 @@ _DEFAULT_PATH = Path("spec1.db")
 
 def get_db(path: Optional[Path] = None) -> Database:
     """Return the module-level default Database, creating if needed."""
-    global _DEFAULT_DB, _DEFAULT_PATH
+    global _DEFAULT_DB
     target = path or _DEFAULT_PATH
     if _DEFAULT_DB is None or _DEFAULT_DB.path != target:
         _DEFAULT_DB = Database(target)
