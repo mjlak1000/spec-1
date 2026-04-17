@@ -19,8 +19,9 @@ from spec1_engine.quant.collector import ALL_TICKERS
 
 # ── Gate thresholds ────────────────────────────────────────────────────────────
 
-VOLUME_THRESHOLD     = 1.2    # relative volume must exceed this
-VELOCITY_THRESHOLD   = 0.005  # |daily_return| must exceed this
+VOLUME_THRESHOLD     = 0.8    # relative volume must exceed this (0.2% above 30-day avg)
+VELOCITY_THRESHOLD   = 0.002  # |daily_return| must exceed this (0.2% minimum move)
+ELEVATED_VELOCITY    = 0.02   # velocity to trigger ELEVATED priority (2%+ move)
 CREDIBILITY_SCORE    = 0.80   # all watchlist tickers get this base credibility
 
 # ── Run-level novelty dedup ────────────────────────────────────────────────────
@@ -58,11 +59,13 @@ def _composite(signal: Signal) -> float:
     rel_vol     = signal.engagement          # Gate 2 raw value
     daily_ret   = abs(signal.velocity)       # Gate 3 raw value
 
-    # Normalise relative volume: 1.2 → 0.0 … 3.0+ → 1.0
-    vol_norm = min((rel_vol - VOLUME_THRESHOLD) / (3.0 - VOLUME_THRESHOLD), 1.0)
+    # Normalise relative volume: 0.8 → 0.0 … 2.0+ → 1.0
+    vol_norm = min((rel_vol - VOLUME_THRESHOLD) / (2.0 - VOLUME_THRESHOLD), 1.0)
+    vol_norm = max(vol_norm, 0.0)
 
-    # Normalise velocity: 0.5% → 0.0 … 5%+ → 1.0
-    vel_norm = min((daily_ret - VELOCITY_THRESHOLD) / (0.05 - VELOCITY_THRESHOLD), 1.0)
+    # Normalise velocity: 0.2% → 0.0 … 2%+ → 1.0
+    vel_norm = min((daily_ret - VELOCITY_THRESHOLD) / (0.02 - VELOCITY_THRESHOLD), 1.0)
+    vel_norm = max(vel_norm, 0.0)
 
     return round(
         CREDIBILITY_SCORE   * 0.30
@@ -72,7 +75,8 @@ def _composite(signal: Signal) -> float:
     )
 
 
-def _priority(score: float) -> str:
+def _priority(score: float, velocity: float = 0.0) -> str:
+    """Assign priority tier based on composite score."""
     if score >= 0.70:
         return "ELEVATED"
     elif score >= 0.50:
@@ -87,15 +91,19 @@ def score_signal(
 ) -> Optional[Opportunity]:
     """Score a quant signal through 4 gates.
 
-    Returns an Opportunity if all gates pass, else None.
+    Returns an Opportunity if:
+    - All 4 gates pass (STANDARD or ELEVATED), OR
+    - Gates 1+2 pass but gate 3 fails (MONITOR tier)
+
+    Gate 4 (novelty) is always required.
     """
     # Gate 1 — Credibility: ticker must be in watchlist
     gate_credibility = signal.source in ALL_TICKERS
 
-    # Gate 2 — Volume: relative volume > 1.2
+    # Gate 2 — Volume: relative volume > 0.8
     gate_volume = signal.engagement > VOLUME_THRESHOLD
 
-    # Gate 3 — Velocity: |daily_return| > 0.5%
+    # Gate 3 — Velocity: |daily_return| > 0.2%
     gate_velocity = abs(signal.velocity) > VELOCITY_THRESHOLD
 
     # Gate 4 — Novelty: not already seen this run
@@ -108,16 +116,34 @@ def score_signal(
         "novelty":     gate_novelty,
     }
 
-    if not all(gate_results.values()):
+    # Gate 4 (novelty) is mandatory
+    if not gate_novelty:
         return None
 
+    # Gates 1+2 must pass for any tier
+    if not (gate_credibility and gate_volume):
+        return None
+
+    # Gate 3 fail with gates 1+2+4 pass → MONITOR tier
+    if not gate_velocity:
+        score = _composite(signal)
+        return Opportunity(
+            opportunity_id=f"opp-q-{uuid.uuid4().hex[:10]}",
+            signal_id=signal.signal_id,
+            score=score,
+            priority="MONITOR",
+            gate_results=gate_results,
+            run_id=run_id,
+        )
+
     score = _composite(signal)
+    priority = _priority(score, signal.velocity)
 
     return Opportunity(
         opportunity_id=f"opp-q-{uuid.uuid4().hex[:10]}",
         signal_id=signal.signal_id,
         score=score,
-        priority=_priority(score),
+        priority=priority,
         gate_results=gate_results,
         run_id=run_id,
     )

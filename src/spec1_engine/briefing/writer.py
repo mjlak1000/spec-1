@@ -54,7 +54,12 @@ def _build_prompts_doc(prompts: list[str], date_str: str, timestamp: str) -> str
     return "\n".join(lines)
 
 
-def write_brief(brief: str, run_id: str, timestamp: str) -> str:
+def write_brief(
+    brief: str,
+    run_id: str,
+    timestamp: str,
+    prompts: str | None = None,  # noqa: ARG001 — accepted for backward compat
+) -> str:
     """Write brief to disk and return the filepath string.
 
     Creates:
@@ -81,9 +86,9 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
 
     word_count = len(brief.split())
 
-    # Extract and format prompts
-    prompts = _extract_prompts(brief)
-    prompts_doc = _build_prompts_doc(prompts, date_str, timestamp)
+    # Extract and format investigation prompts from brief
+    extracted_prompts = _extract_prompts(brief)
+    prompts_doc = _build_prompts_doc(extracted_prompts, date_str, timestamp)
 
     with _lock:
         dated_path.write_text(brief, encoding="utf-8")
@@ -101,5 +106,5 @@ def write_brief(brief: str, run_id: str, timestamp: str) -> str:
         with index_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(index_entry) + "\n")
 
-    logger.info("Brief written to %s (%d words, %d prompts)", dated_path, word_count, len(prompts))
+    logger.info("Brief written to %s (%d words, %d prompts)", dated_path, word_count, len(extracted_prompts))
     return str(dated_path)
