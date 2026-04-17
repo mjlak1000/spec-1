@@ -4,14 +4,19 @@ Calls Claude Sonnet to write a publishable brief from today's scored records.
 Falls back to a raw-stats brief on any API error — never crashes the cycle.
 """
 
-from __future__ import annotations
+import os
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
 
 import logging
-import os
 from datetime import datetime, timezone
 
-from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv(usecwd=True), encoding="utf-8-sig", override=True)
+import anthropic
 
 from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
@@ -19,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 3000
+
+client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 # Sources that map to Cyber / Info Ops domain
 _CYBER_SOURCES = {
@@ -38,7 +45,6 @@ def _classify_domain(record: dict) -> str:
     src = str(record.get("signal_source", "")).lower()
     if src in _CYBER_SOURCES:
         return "cyber"
-    # Default geopolitics for national-security OSINT sources
     return "geo"
 
 
@@ -60,7 +66,6 @@ def _format_record(record: dict) -> str:
 
 def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
     """Build the filled USER_PROMPT_TEMPLATE string."""
-    # Split elevated vs standard
     elevated = [
         r for r in records
         if r.get("outcome_classification", r.get("classification", "")) in ("CORROBORATED", "ESCALATE")
@@ -72,11 +77,9 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
         reverse=True,
     )[:10]
 
-    # Domain counts
     geo_count = sum(1 for r in records if _classify_domain(r) == "geo")
     cyber_count = sum(1 for r in records if _classify_domain(r) == "cyber")
 
-    # Format record blocks
     elevated_block = (
         "\n".join(_format_record(r) for r in elevated)
         if elevated else "(none)"
@@ -144,8 +147,6 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
     prompt = _build_prompt(records, cycle_stats)
 
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
