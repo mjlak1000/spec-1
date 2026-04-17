@@ -1,12 +1,12 @@
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
 """Daily intelligence brief generator.
 
 Calls Claude Sonnet to write a publishable brief from today's scored records.
 Falls back to a raw-stats brief on any API error — never crashes the cycle.
 """
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 import logging
 from datetime import datetime, timezone

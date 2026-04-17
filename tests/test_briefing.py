@@ -110,14 +110,13 @@ def make_mock_claude_response(text: str) -> MagicMock:
 # ─── generator.py — unit tests ────────────────────────────────────────────────
 
 def test_generate_brief_returns_string():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     mock_resp = make_mock_claude_response(SAMPLE_BRIEF)
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.return_value = mock_resp
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", return_value=mock_resp):
+            result = generator.generate_brief(records, stats)
     assert isinstance(result, str)
     assert len(result) > 0
 
@@ -157,26 +156,24 @@ def test_generate_brief_story_leads_present_with_elevated():
 
 
 def test_generate_brief_api_failure_returns_fallback():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.side_effect = Exception("API down")
-            result = generate_brief(records, stats)
+        with patch.object(generator.client.messages, "create", side_effect=Exception("API down")):
+            result = generator.generate_brief(records, stats)
     assert isinstance(result, str)
     assert "## SPEC-1 DAILY BRIEF" in result
 
 
 def test_generate_brief_api_failure_no_exception():
-    from spec1_engine.briefing.generator import generate_brief
+    from spec1_engine.briefing import generator
     records = [make_record()]
     stats = make_cycle_stats()
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch("anthropic.Anthropic") as MockClient:
-            MockClient.return_value.messages.create.side_effect = RuntimeError("timeout")
+        with patch.object(generator.client.messages, "create", side_effect=RuntimeError("timeout")):
             try:
-                generate_brief(records, stats)
+                generator.generate_brief(records, stats)
             except Exception as exc:
                 pytest.fail(f"generate_brief raised: {exc}")
 
