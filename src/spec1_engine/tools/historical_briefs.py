@@ -53,37 +53,37 @@ def _existing_brief_dates(briefs_dir: Path) -> set[str]:
     }
 
 
-def _finished_at_for_group(records: list[dict]) -> str:
-    """Best-effort finished_at from records: prefer explicit field, fall back to written_at or published_at."""
-    for field in ("finished_at", "written_at", "published_at"):
-        for r in records:
-            val = r.get(field)
-            if val:
-                return str(val)
+def _date_for_group(records: list[dict]) -> str:
+    """Return YYYY-MM-DD from the first record's created_at field."""
+    for r in records:
+        val = r.get("created_at", "")
+        if val:
+            return str(val)[:10]
     return ""
 
 
-def _date_from_timestamp(ts: str) -> str:
-    """Extract YYYY-MM-DD from an ISO timestamp string."""
-    if not ts:
-        return ""
-    return ts[:10]
+def _timestamp_for_group(records: list[dict]) -> str:
+    """Return full ISO timestamp from the first record's created_at field."""
+    for r in records:
+        val = r.get("created_at", "")
+        if val:
+            return str(val)
+    return ""
 
 
 def _build_cycle_stats(run_id: str, records: list[dict]) -> dict:
-    finished_at = _finished_at_for_group(records)
+    timestamp = _timestamp_for_group(records)
     elevated_count = sum(
         1 for r in records
         if r.get("outcome_classification", r.get("classification", "")) in ELEVATED_CLASSIFICATIONS
     )
-    # signals_harvested: use field if present, else count of records as proxy
     signals_harvested = records[0].get("signals_harvested", len(records)) if records else 0
     opportunities_found = records[0].get("opportunities_found", elevated_count) if records else 0
 
     return {
         "run_id": run_id,
-        "started_at": records[0].get("started_at", finished_at) if records else finished_at,
-        "finished_at": finished_at,
+        "started_at": records[0].get("started_at", timestamp) if records else timestamp,
+        "finished_at": timestamp,
         "signals_harvested": signals_harvested,
         "opportunities_found": opportunities_found,
         "records_stored": len(records),
@@ -110,37 +110,33 @@ def run() -> None:
     already_had = 0
     generated = 0
     failed = 0
+    pending = 0
 
     for run_id, records in sorted(groups.items()):
-        finished_at = _finished_at_for_group(records)
-        date = _date_from_timestamp(finished_at)
+        date = _date_for_group(records)
 
         if date and date in existing_dates:
             already_had += 1
             continue
 
+        pending += 1
         cycle_stats = _build_cycle_stats(run_id, records)
         timestamp = cycle_stats["finished_at"] or "unknown"
-        elevated_count = sum(
-            1 for r in records
-            if r.get("outcome_classification", r.get("classification", "")) in ELEVATED_CLASSIFICATIONS
-        )
 
         try:
             brief_md, _prompts = generate_brief(records, cycle_stats)
-            filepath = write_brief(brief_md, run_id, timestamp)
+            write_brief(brief_md, run_id, timestamp)
             word_count = len(brief_md.split())
-            display_date = date or timestamp[:10] if timestamp != "unknown" else run_id[:10]
+            display_date = date if date else (timestamp[:10] if timestamp != "unknown" else run_id[:10])
             print(f"[{display_date}] {run_id} — {len(records)} records — brief written ({word_count} words)")
             generated += 1
-            # Update existing dates so we don't double-write if two run_ids share a date
             if date:
                 existing_dates.add(date)
         except Exception as exc:
             print(f"[ERROR] {run_id}: {type(exc).__name__}: {exc}")
             failed += 1
 
-        if generated + failed < total_run_ids - already_had:
+        if pending < total_run_ids - already_had:
             time.sleep(2)
 
     print("\n--- Summary ---")
