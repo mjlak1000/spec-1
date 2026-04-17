@@ -115,8 +115,12 @@ def test_ticker_sector_maps_all():
 
 def test_fetch_ohlcv_returns_dataframe_on_success():
     from spec1_engine.quant.collector import fetch_ohlcv
+    from unittest.mock import MagicMock
     df = make_df([100.0, 102.0, 101.0])
-    with patch("yfinance.download", return_value=df):
+    mock_yf = MagicMock()
+    mock_yf.download.return_value = df
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         result = fetch_ohlcv("LMT")
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
@@ -124,7 +128,11 @@ def test_fetch_ohlcv_returns_dataframe_on_success():
 
 def test_fetch_ohlcv_returns_empty_on_failure():
     from spec1_engine.quant.collector import fetch_ohlcv
-    with patch("yfinance.download", side_effect=Exception("network error")):
+    from unittest.mock import MagicMock
+    mock_yf = MagicMock()
+    mock_yf.download.side_effect = Exception("network error")
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         result = fetch_ohlcv("LMT")
     assert isinstance(result, pd.DataFrame)
     assert result.empty
@@ -132,7 +140,11 @@ def test_fetch_ohlcv_returns_empty_on_failure():
 
 def test_fetch_ohlcv_does_not_raise():
     from spec1_engine.quant.collector import fetch_ohlcv
-    with patch("yfinance.download", side_effect=RuntimeError("timeout")):
+    from unittest.mock import MagicMock
+    mock_yf = MagicMock()
+    mock_yf.download.side_effect = RuntimeError("timeout")
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         try:
             fetch_ohlcv("BAD")
         except Exception as exc:
@@ -303,7 +315,8 @@ def test_gate_credibility_unknown_ticker_blocked():
 def test_gate_volume_low_blocks():
     from spec1_engine.quant.scorer import score_signal, clear_seen
     clear_seen()
-    sig = make_signal("LMT", daily_return=0.02, rel_volume=0.9, run_id="run-s4")
+    # Gate 2 threshold is now 0.8; use 0.7 to fail the gate
+    sig = make_signal("LMT", daily_return=0.02, rel_volume=0.7, run_id="run-s4")
     opp = score_signal(sig, run_id="run-s4")
     assert opp is None
 
@@ -311,9 +324,13 @@ def test_gate_volume_low_blocks():
 def test_gate_velocity_low_blocks():
     from spec1_engine.quant.scorer import score_signal, clear_seen
     clear_seen()
+    # With new behavior: gates 1+2 pass, gate 3 fails → MONITOR tier (not None)
+    # Use low velocity (0.001 = 0.1%) and good volume (2.0)
     sig = make_signal("LMT", daily_return=0.001, rel_volume=2.0, run_id="run-s5")
     opp = score_signal(sig, run_id="run-s5")
-    assert opp is None
+    # Now returns MONITOR tier since gates 1+2 pass but gate 3 fails
+    assert opp is not None
+    assert opp.priority == "MONITOR"
 
 
 def test_gate_novelty_dedup_blocks_second():
@@ -407,7 +424,7 @@ def _make_investigation(opportunity_id: str = "opp-q-test"):
     )
 
 
-def _make_outcome(classification: str = "Investigate", confidence: float = 0.5):
+def _make_outcome(classification: str = "INVESTIGATE", confidence: float = 0.5):
     from spec1_engine.schemas.models import Outcome
     return Outcome(
         outcome_id="out-q-test",
@@ -470,9 +487,9 @@ def test_analyze_confidence_in_range():
 def test_analyze_classification_passes_through():
     from spec1_engine.quant.analyzer import analyze
     sig = make_signal("LMT")
-    out = _make_outcome(classification="Escalate")
+    out = _make_outcome(classification="ESCALATE")
     rec = analyze(_make_opportunity(), _make_investigation(), out, sig)
-    assert rec.classification == "Escalate"
+    assert rec.classification == "ESCALATE"
 
 
 def test_analyze_source_weight_is_sector_weight():
@@ -511,7 +528,7 @@ def test_run_quant_cycle_returns_dict(tmp_path):
          patch("spec1_engine.quant.cycle.verify_investigation") as mock_verify:
         from spec1_engine.schemas.models import Outcome
         mock_verify.return_value = Outcome(
-            outcome_id="out-test", classification="Investigate",
+            outcome_id="out-test", classification="INVESTIGATE",
             confidence=0.5, evidence=[],
         )
         stats = run_quant_cycle(
@@ -570,7 +587,7 @@ def test_run_quant_cycle_writes_jsonl(tmp_path):
     with patch("spec1_engine.quant.cycle.fetch_all", return_value=mock_ohlcv), \
          patch("spec1_engine.quant.cycle.verify_investigation") as mock_verify:
         mock_verify.return_value = Outcome(
-            outcome_id="out-t", classification="Monitor",
+            outcome_id="out-t", classification="MONITOR",
             confidence=0.4, evidence=[],
         )
         stats = run_quant_cycle(store_path=store_path, tickers=["LMT"], verbose=False)

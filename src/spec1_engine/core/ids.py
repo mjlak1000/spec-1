@@ -44,3 +44,8 @@ def outcome_id() -> str:
 def record_id() -> str:
     """Generate an intelligence record ID."""
     return f"rec-{uuid.uuid4().hex[:12]}"
+
+
+def case_id() -> str:
+    """Generate a unique case ID for an investigation case file."""
+    return f"case-{uuid.uuid4().hex[:12]}"

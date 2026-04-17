@@ -22,7 +22,7 @@ from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 3000
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -68,7 +68,7 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
     """Build the filled USER_PROMPT_TEMPLATE string."""
     elevated = [
         r for r in records
-        if r.get("outcome_classification", r.get("classification", "")) in ("Corroborated", "Escalate")
+        if r.get("outcome_classification", r.get("classification", "")) in ("CORROBORATED", "ESCALATE")
     ]
     remaining = [r for r in records if r not in elevated]
     standard_top10 = sorted(
@@ -108,9 +108,27 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
 
 def _fallback_brief(cycle_stats: dict) -> str:
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    run_id = cycle_stats.get("run_id", "—")
+    harvested = cycle_stats.get("signals_harvested", 0)
+    opportunities = cycle_stats.get("opportunities_found", 0)
+    stored = cycle_stats.get("records_stored", 0)
+    errors = cycle_stats.get("errors", [])
+    finished = cycle_stats.get("finished_at", "—")
+
+    error_block = ""
+    if errors:
+        error_lines = "\n".join(f"  - {e}" for e in errors)
+        error_block = f"\n\n**Harvest errors ({len(errors)}):**\n{error_lines}"
+
     return (
         f"## SPEC-1 DAILY BRIEF — {date_str}\n\n"
-        f"[Brief generation failed. Raw stats: {cycle_stats}]"
+        f"*AI brief unavailable — API key not configured. Cycle stats below.*\n\n"
+        f"**Run:** {run_id}  \n"
+        f"**Completed:** {finished}  \n"
+        f"**Signals harvested:** {harvested}  \n"
+        f"**Opportunities found:** {opportunities}  \n"
+        f"**Records stored:** {stored}"
+        f"{error_block}"
     )
 
 
@@ -120,7 +138,7 @@ def generate_brief(records: list[dict], cycle_stats: dict) -> str:
     Returns a markdown string. On any failure returns a fallback brief.
     Never raises.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip().lstrip('\ufeff')
     if not api_key:
         print("[briefing] ANTHROPIC_API_KEY not set in environment — returning fallback brief")
         logger.warning("ANTHROPIC_API_KEY not set — returning fallback brief")
