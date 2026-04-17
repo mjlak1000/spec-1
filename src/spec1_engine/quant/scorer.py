@@ -76,8 +76,8 @@ def _composite(signal: Signal) -> float:
 
 
 def _priority(score: float, velocity: float = 0.0) -> str:
-    """Assign priority based on score and velocity thresholds."""
-    if score >= 0.70 and abs(velocity) >= ELEVATED_VELOCITY:
+    """Assign priority tier based on composite score."""
+    if score >= 0.70:
         return "ELEVATED"
     elif score >= 0.50:
         return "STANDARD"
@@ -124,8 +124,18 @@ def score_signal(
     if not (gate_credibility and gate_volume):
         return None
 
-    # If gates 1,2,4 pass but gate 3 fails: MONITOR tier
-    # If all gates pass: STANDARD or ELEVATED tier
+    # Gate 3 fail with gates 1+2+4 pass → MONITOR tier
+    if not gate_velocity:
+        score = _composite(signal)
+        return Opportunity(
+            opportunity_id=f"opp-q-{uuid.uuid4().hex[:10]}",
+            signal_id=signal.signal_id,
+            score=score,
+            priority="MONITOR",
+            gate_results=gate_results,
+            run_id=run_id,
+        )
+
     score = _composite(signal)
     priority = _priority(score, signal.velocity)
 

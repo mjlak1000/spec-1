@@ -115,8 +115,12 @@ def test_ticker_sector_maps_all():
 
 def test_fetch_ohlcv_returns_dataframe_on_success():
     from spec1_engine.quant.collector import fetch_ohlcv
+    from unittest.mock import MagicMock
     df = make_df([100.0, 102.0, 101.0])
-    with patch("yfinance.download", return_value=df):
+    mock_yf = MagicMock()
+    mock_yf.download.return_value = df
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         result = fetch_ohlcv("LMT")
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
@@ -124,7 +128,11 @@ def test_fetch_ohlcv_returns_dataframe_on_success():
 
 def test_fetch_ohlcv_returns_empty_on_failure():
     from spec1_engine.quant.collector import fetch_ohlcv
-    with patch("yfinance.download", side_effect=Exception("network error")):
+    from unittest.mock import MagicMock
+    mock_yf = MagicMock()
+    mock_yf.download.side_effect = Exception("network error")
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         result = fetch_ohlcv("LMT")
     assert isinstance(result, pd.DataFrame)
     assert result.empty
@@ -132,7 +140,11 @@ def test_fetch_ohlcv_returns_empty_on_failure():
 
 def test_fetch_ohlcv_does_not_raise():
     from spec1_engine.quant.collector import fetch_ohlcv
-    with patch("yfinance.download", side_effect=RuntimeError("timeout")):
+    from unittest.mock import MagicMock
+    mock_yf = MagicMock()
+    mock_yf.download.side_effect = RuntimeError("timeout")
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         try:
             fetch_ohlcv("BAD")
         except Exception as exc:

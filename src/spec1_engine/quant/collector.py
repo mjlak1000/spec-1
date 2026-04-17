@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import logging
 
+import pandas as pd
+
 try:
-    import pandas as pd
     import yfinance as yf
     _YFINANCE_AVAILABLE = True
 except ImportError:
-    pd = None  # type: ignore[assignment]
     yf = None  # type: ignore[assignment]
     _YFINANCE_AVAILABLE = False
 
