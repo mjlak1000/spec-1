@@ -301,9 +301,8 @@ def run_cycle(
         from spec1_engine.briefing.writer import write_brief
         if verbose:
             print(f"\n[Briefing] Generating daily intelligence brief...")
-        brief_md = generate_brief(stored_records, stats)
-        prompts_artifact = f"## SYSTEM PROMPT\n\n{SYSTEM_PROMPT.strip()}\n\n---\n\n## USER PROMPT TEMPLATE\n\n{USER_PROMPT_TEMPLATE.strip()}\n"
-        brief_path = write_brief(brief_md, run_id, stats["finished_at"], prompts=prompts_artifact)
+        brief_md, brief_prompts = generate_brief(stored_records, stats)
+        brief_path = write_brief(brief_md, run_id, stats["finished_at"], brief_prompts)
         brief_word_count = len(brief_md.split())
         stats["brief_path"] = brief_path
         stats["brief_word_count"] = brief_word_count
