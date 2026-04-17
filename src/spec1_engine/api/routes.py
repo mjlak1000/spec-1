@@ -123,6 +123,36 @@ def brief_index() -> list[dict]:
     return list(reversed(entries))
 
 
+@router.get("/brief/prompts/latest")
+def brief_prompts_latest() -> dict:
+    """Return the most recently generated Claude investigation prompts.
+
+    Returns {"prompts": markdown_string, "date": str, "lead_count": int}.
+    404 if no prompts file has been generated yet.
+    """
+    briefs_dir = _brief_writer.BRIEFS_DIR
+    latest = briefs_dir / "spec1_prompts_latest.md"
+    if not latest.exists():
+        raise HTTPException(status_code=404, detail="No prompts file generated yet.")
+    prompts_text = latest.read_text(encoding="utf-8")
+    lead_count = prompts_text.count("**CLAUDE PROMPT:**")
+    index_path = briefs_dir / "brief_index.jsonl"
+    date_str = None
+    if index_path.exists():
+        last = None
+        for line in index_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                last = json.loads(line)
+            except json.JSONDecodeError:
+                pass
+        if last:
+            date_str = last.get("date")
+    return {"prompts": prompts_text, "date": date_str, "lead_count": lead_count}
+
+
 @router.get("/brief/{date}")
 def brief_by_date(date: str) -> dict:
     """Return the brief for a specific date (YYYY-MM-DD)."""

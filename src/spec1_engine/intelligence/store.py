@@ -92,7 +92,7 @@ _DEFAULT_PATH = Path("spec1_intelligence.jsonl")
 
 
 def _get_default_store(path: Optional[Path] = None) -> JsonlStore:
-    global _DEFAULT_STORE, _DEFAULT_PATH
+    global _DEFAULT_STORE
     target = path or _DEFAULT_PATH
     if _DEFAULT_STORE is None or _DEFAULT_STORE.path != target:
         _DEFAULT_STORE = JsonlStore(target)

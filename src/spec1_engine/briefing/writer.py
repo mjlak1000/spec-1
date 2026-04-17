@@ -37,13 +37,26 @@ def write_brief(brief: str, run_id: str, timestamp: str, prompts: str = "") -> s
 
     dated_path = BRIEFS_DIR / f"spec1_brief_{date_str}.md"
     latest_path = BRIEFS_DIR / "spec1_brief_latest.md"
+    prompts_dated_path = BRIEFS_DIR / f"spec1_prompts_{date_str}.md"
+    prompts_latest_path = BRIEFS_DIR / "spec1_prompts_latest.md"
     index_path = BRIEFS_DIR / "brief_index.jsonl"
 
     word_count = len(brief.split())
 
+    # Build prompts content: use provided string or extract from brief
+    if prompts is not None:
+        prompts_doc = prompts
+        prompt_count = prompts.count("**CLAUDE PROMPT:**")
+    else:
+        extracted = _extract_prompts(brief)
+        prompts_doc = _build_prompts_doc(extracted, date_str, timestamp)
+        prompt_count = len(extracted)
+
     with _lock:
         dated_path.write_text(brief, encoding="utf-8")
         latest_path.write_text(brief, encoding="utf-8")
+        prompts_dated_path.write_text(prompts_doc, encoding="utf-8")
+        prompts_latest_path.write_text(prompts_doc, encoding="utf-8")
 
         index_entry = {
             "run_id": run_id,

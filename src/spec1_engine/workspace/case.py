@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from spec1_engine.core import ids, logging_utils
@@ -51,7 +51,7 @@ def open_case(
         run_id = ids.run_id()
 
     case_id = ids.case_id()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     case = CaseFile(
         case_id=case_id,
@@ -121,7 +121,7 @@ def update_case(
         case.findings.append(new_finding)
 
     # Update metadata
-    case.updated_at = datetime.utcnow()
+    case.updated_at = datetime.now(timezone.utc)
     case.research_runs += 1
 
     # Recalculate confidence (simple: average over findings)
@@ -282,7 +282,7 @@ def _generate_report_md(case: CaseFile) -> str:
         f"**Case ID:** `{case.case_id}`",
         f"**Status:** {case.status}",
         f"**Opened:** {case.opened_at.isoformat()}",
-        f"**Closed:** {datetime.utcnow().isoformat()}",
+        f"**Closed:** {datetime.now(timezone.utc).isoformat()}",
         f"**Final Confidence:** {case.confidence:.1%}",
         f"",
         f"## Question",

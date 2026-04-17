@@ -297,6 +297,7 @@ def run_cycle(
     # ── Briefing ──────────────────────────────────────────────────────────────
     try:
         from spec1_engine.briefing.generator import generate_brief
+        from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
         from spec1_engine.briefing.writer import write_brief
         if verbose:
             print(f"\n[Briefing] Generating daily intelligence brief...")

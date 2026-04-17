@@ -115,8 +115,12 @@ def test_ticker_sector_maps_all():
 
 def test_fetch_ohlcv_returns_dataframe_on_success():
     from spec1_engine.quant.collector import fetch_ohlcv
+    from unittest.mock import MagicMock
     df = make_df([100.0, 102.0, 101.0])
-    with patch("yfinance.download", return_value=df):
+    mock_yf = MagicMock()
+    mock_yf.download.return_value = df
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         result = fetch_ohlcv("LMT")
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
@@ -124,7 +128,11 @@ def test_fetch_ohlcv_returns_dataframe_on_success():
 
 def test_fetch_ohlcv_returns_empty_on_failure():
     from spec1_engine.quant.collector import fetch_ohlcv
-    with patch("yfinance.download", side_effect=Exception("network error")):
+    from unittest.mock import MagicMock
+    mock_yf = MagicMock()
+    mock_yf.download.side_effect = Exception("network error")
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         result = fetch_ohlcv("LMT")
     assert isinstance(result, pd.DataFrame)
     assert result.empty
@@ -132,7 +140,11 @@ def test_fetch_ohlcv_returns_empty_on_failure():
 
 def test_fetch_ohlcv_does_not_raise():
     from spec1_engine.quant.collector import fetch_ohlcv
-    with patch("yfinance.download", side_effect=RuntimeError("timeout")):
+    from unittest.mock import MagicMock
+    mock_yf = MagicMock()
+    mock_yf.download.side_effect = RuntimeError("timeout")
+    with patch("spec1_engine.quant.collector.yf", mock_yf), \
+         patch("spec1_engine.quant.collector._YFINANCE_AVAILABLE", True):
         try:
             fetch_ohlcv("BAD")
         except Exception as exc:
@@ -412,7 +424,7 @@ def _make_investigation(opportunity_id: str = "opp-q-test"):
     )
 
 
-def _make_outcome(classification: str = "Investigate", confidence: float = 0.5):
+def _make_outcome(classification: str = "INVESTIGATE", confidence: float = 0.5):
     from spec1_engine.schemas.models import Outcome
     return Outcome(
         outcome_id="out-q-test",
@@ -475,9 +487,9 @@ def test_analyze_confidence_in_range():
 def test_analyze_classification_passes_through():
     from spec1_engine.quant.analyzer import analyze
     sig = make_signal("LMT")
-    out = _make_outcome(classification="Escalate")
+    out = _make_outcome(classification="ESCALATE")
     rec = analyze(_make_opportunity(), _make_investigation(), out, sig)
-    assert rec.classification == "Escalate"
+    assert rec.classification == "ESCALATE"
 
 
 def test_analyze_source_weight_is_sector_weight():
@@ -516,7 +528,7 @@ def test_run_quant_cycle_returns_dict(tmp_path):
          patch("spec1_engine.quant.cycle.verify_investigation") as mock_verify:
         from spec1_engine.schemas.models import Outcome
         mock_verify.return_value = Outcome(
-            outcome_id="out-test", classification="Investigate",
+            outcome_id="out-test", classification="INVESTIGATE",
             confidence=0.5, evidence=[],
         )
         stats = run_quant_cycle(
@@ -575,7 +587,7 @@ def test_run_quant_cycle_writes_jsonl(tmp_path):
     with patch("spec1_engine.quant.cycle.fetch_all", return_value=mock_ohlcv), \
          patch("spec1_engine.quant.cycle.verify_investigation") as mock_verify:
         mock_verify.return_value = Outcome(
-            outcome_id="out-t", classification="Monitor",
+            outcome_id="out-t", classification="MONITOR",
             confidence=0.4, evidence=[],
         )
         stats = run_quant_cycle(store_path=store_path, tickers=["LMT"], verbose=False)
