@@ -23,7 +23,7 @@ from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 3000
+MAX_TOKENS = 4000
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 

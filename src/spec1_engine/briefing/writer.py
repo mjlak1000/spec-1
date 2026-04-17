@@ -14,6 +14,46 @@ BRIEFS_DIR = Path("briefs")
 _lock = threading.Lock()
 
 
+def _extract_prompts(brief: str) -> list[str]:
+    """Extract CLAUDE PROMPT blockquote blocks from a generated brief.
+
+    Returns a list of blockquote strings, one per lead.
+    """
+    prompts = []
+    lines = brief.splitlines()
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped.startswith(">") and "**CLAUDE PROMPT:**" in stripped:
+            block_lines = []
+            while i < len(lines) and lines[i].strip().startswith(">"):
+                block_lines.append(lines[i])
+                i += 1
+            prompts.append("\n".join(block_lines))
+        else:
+            i += 1
+    return prompts
+
+
+def _build_prompts_doc(prompts: list[str], date_str: str, timestamp: str) -> str:
+    """Build the prompts-only markdown document."""
+    lines = [
+        f"# SPEC-1 Investigation Prompts — {date_str}",
+        f"Generated: {timestamp}",
+        "",
+    ]
+    if not prompts:
+        lines.append("_(No Claude investigation prompts in this brief.)_")
+        lines.append("")
+    else:
+        for i, prompt_block in enumerate(prompts, start=1):
+            lines.append(f"## Prompt {i}")
+            lines.append("")
+            lines.append(prompt_block)
+            lines.append("")
+    return "\n".join(lines)
+
+
 def write_brief(
     brief: str,
     run_id: str,
@@ -23,13 +63,15 @@ def write_brief(
     """Write brief to disk and return the filepath string.
 
     Creates:
-      briefs/spec1_brief_{YYYY-MM-DD}.md    — dated file
+      briefs/spec1_brief_{YYYY-MM-DD}.md    — dated full brief
       briefs/spec1_brief_latest.md          — always overwritten
+      briefs/spec1_prompts_{YYYY-MM-DD}.md  — investigation prompts only
+      briefs/spec1_prompts_latest.md        — always overwritten
       briefs/brief_index.jsonl              — append-only index
 
-    When *prompts* is supplied also creates:
-      briefs/spec1_prompts_{YYYY-MM-DD}.md  — dated prompts snapshot
-      briefs/spec1_prompts_latest.md        — always overwritten
+    When *prompts* is supplied it is written directly to the prompts files;
+    otherwise prompts are extracted from the brief using
+    _extract_prompts/_build_prompts_doc.
     """
     BRIEFS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -42,17 +84,26 @@ def write_brief(
 
     dated_path = BRIEFS_DIR / f"spec1_brief_{date_str}.md"
     latest_path = BRIEFS_DIR / "spec1_brief_latest.md"
+    prompts_dated_path = BRIEFS_DIR / f"spec1_prompts_{date_str}.md"
+    prompts_latest_path = BRIEFS_DIR / "spec1_prompts_latest.md"
     index_path = BRIEFS_DIR / "brief_index.jsonl"
 
     word_count = len(brief.split())
 
+    # Build prompts content: use provided string or extract from brief
+    if prompts is not None:
+        prompts_doc = prompts
+        prompt_count = prompts.count("**CLAUDE PROMPT:**")
+    else:
+        extracted = _extract_prompts(brief)
+        prompts_doc = _build_prompts_doc(extracted, date_str, timestamp)
+        prompt_count = len(extracted)
+
     with _lock:
         dated_path.write_text(brief, encoding="utf-8")
         latest_path.write_text(brief, encoding="utf-8")
-
-        if prompts is not None:
-            (BRIEFS_DIR / f"spec1_prompts_{date_str}.md").write_text(prompts, encoding="utf-8")
-            (BRIEFS_DIR / "spec1_prompts_latest.md").write_text(prompts, encoding="utf-8")
+        prompts_dated_path.write_text(prompts_doc, encoding="utf-8")
+        prompts_latest_path.write_text(prompts_doc, encoding="utf-8")
 
         index_entry = {
             "run_id": run_id,
@@ -64,5 +115,5 @@ def write_brief(
         with index_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(index_entry) + "\n")
 
-    logger.info("Brief written to %s (%d words)", dated_path, word_count)
+    logger.info("Brief written to %s (%d words, %d prompts)", dated_path, word_count, prompt_count)
     return str(dated_path)
