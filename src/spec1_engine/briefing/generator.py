@@ -4,14 +4,19 @@ Calls Claude Sonnet to write a publishable brief from today's scored records.
 Falls back to a raw-stats brief on any API error — never crashes the cycle.
 """
 
-from __future__ import annotations
+import os
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
 
 import logging
-import os
 from datetime import datetime, timezone
 
-from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv(usecwd=True), encoding="utf-8-sig", override=True)
+import anthropic
 
 from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
@@ -38,7 +43,6 @@ def _classify_domain(record: dict) -> str:
     src = str(record.get("signal_source", "")).lower()
     if src in _CYBER_SOURCES:
         return "cyber"
-    # Default geopolitics for national-security OSINT sources
     return "geo"
 
 
@@ -60,7 +64,6 @@ def _format_record(record: dict) -> str:
 
 def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
     """Build the filled USER_PROMPT_TEMPLATE string."""
-    # Split elevated vs standard
     elevated = [
         r for r in records
         if r.get("outcome_classification", r.get("classification", "")) in ("CORROBORATED", "ESCALATE")
@@ -72,11 +75,9 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
         reverse=True,
     )[:10]
 
-    # Domain counts
     geo_count = sum(1 for r in records if _classify_domain(r) == "geo")
     cyber_count = sum(1 for r in records if _classify_domain(r) == "cyber")
 
-    # Format record blocks
     elevated_block = (
         "\n".join(_format_record(r) for r in elevated)
         if elevated else "(none)"
@@ -129,33 +130,37 @@ def _fallback_brief(cycle_stats: dict) -> str:
     )
 
 
-def generate_brief(records: list[dict], cycle_stats: dict) -> str:
+def generate_brief(records: list[dict], cycle_stats: dict) -> tuple[str, str]:
     """Generate the daily intelligence brief via Claude.
 
-    Returns a markdown string. On any failure returns a fallback brief.
+    Returns a (brief, prompts_text) tuple where *brief* is the generated
+    markdown and *prompts_text* is the full prompts payload (system + user)
+    that was sent to the model.  On any failure the brief is a fallback
+    string; prompts_text is still populated when available.
     Never raises.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip().lstrip('\ufeff')
     if not api_key:
         print("[briefing] ANTHROPIC_API_KEY not set in environment — returning fallback brief")
         logger.warning("ANTHROPIC_API_KEY not set — returning fallback brief")
-        return _fallback_brief(cycle_stats)
+        return _fallback_brief(cycle_stats), ""
 
-    prompt = _build_prompt(records, cycle_stats)
+    prompts_text = ""
 
     try:
-        import anthropic
+        user_prompt = _build_prompt(records, cycle_stats)
+        prompts_text = f"## SYSTEM PROMPT\n\n{SYSTEM_PROMPT.strip()}\n\n---\n\n## USER PROMPT\n\n{user_prompt.strip()}\n"
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": user_prompt}],
         )
         brief = message.content[0].text.strip()
         logger.info("Brief generated — %d words", len(brief.split()))
-        return brief
+        return brief, prompts_text
     except Exception as exc:
         print(f"[briefing] API call failed: {type(exc).__name__}: {exc}")
         logger.error("Brief generation failed: %s", exc)
-        return _fallback_brief(cycle_stats)
+        return _fallback_brief(cycle_stats), prompts_text
