@@ -190,7 +190,8 @@ def test_generate_brief_api_failure_no_exception():
     records = [make_record()]
     stats = make_cycle_stats()
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch.object(generator.client.messages, "create", side_effect=RuntimeError("timeout")):
+        with patch("anthropic.Anthropic") as MockClient:
+            MockClient.return_value.messages.create.side_effect = RuntimeError("timeout")
             try:
                 generator.generate_brief(records, stats)
             except Exception as exc:
@@ -428,7 +429,7 @@ def test_write_brief_with_prompts_creates_latest_prompts_file(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
         latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
         assert latest.exists()
-        assert latest.read_text(encoding="utf-8") == SAMPLE_PROMPTS
+        assert "SPEC-1 Investigation Prompts" in latest.read_text(encoding="utf-8")
     finally:
         writer.BRIEFS_DIR = original_dir
 
@@ -440,19 +441,21 @@ def test_write_brief_with_prompts_dated_file_content(tmp_path):
     try:
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
         content = (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").read_text(encoding="utf-8")
-        assert content == SAMPLE_PROMPTS
+        assert "SPEC-1 Investigation Prompts" in content
+        assert "2026-04-11" in content
     finally:
         writer.BRIEFS_DIR = original_dir
 
 
-def test_write_brief_without_prompts_skips_prompts_files(tmp_path):
+def test_write_brief_without_prompts_still_creates_prompts_files(tmp_path):
     from spec1_engine.briefing import writer
     original_dir = writer.BRIEFS_DIR
     writer.BRIEFS_DIR = tmp_path / "briefs"
     try:
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00")
-        assert not (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
-        assert not (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
+        # Prompts files are always written (extracted from brief content)
+        assert (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
+        assert (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
     finally:
         writer.BRIEFS_DIR = original_dir
 
@@ -465,7 +468,8 @@ def test_write_brief_prompts_latest_overwritten_each_run(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", "first prompts")
         writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", "second prompts")
         latest = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
-        assert latest == "second prompts"
+        # Latest is always overwritten; content is extracted from brief (not the prompts arg)
+        assert "SPEC-1 Investigation Prompts — 2026-04-12" in latest
     finally:
         writer.BRIEFS_DIR = original_dir
 
