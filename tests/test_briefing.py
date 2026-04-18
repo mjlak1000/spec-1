@@ -429,7 +429,6 @@ def test_write_brief_with_prompts_creates_latest_prompts_file(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
         latest = writer.BRIEFS_DIR / "spec1_prompts_latest.md"
         assert latest.exists()
-        # prompts files are always built by extraction from brief
         assert "SPEC-1 Investigation Prompts" in latest.read_text(encoding="utf-8")
     finally:
         writer.BRIEFS_DIR = original_dir
@@ -442,14 +441,12 @@ def test_write_brief_with_prompts_dated_file_content(tmp_path):
     try:
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
         content = (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").read_text(encoding="utf-8")
-        # prompts files are always built by extraction from brief
         assert "SPEC-1 Investigation Prompts" in content
     finally:
         writer.BRIEFS_DIR = original_dir
 
 
-def test_write_brief_without_prompts_skips_prompts_files(tmp_path):
-    """write_brief always creates prompts files regardless of the prompts argument."""
+def test_write_brief_without_prompts_still_creates_prompts_files(tmp_path):
     from spec1_engine.briefing import writer
     original_dir = writer.BRIEFS_DIR
     writer.BRIEFS_DIR = tmp_path / "briefs"
@@ -469,7 +466,6 @@ def test_write_brief_prompts_latest_overwritten_each_run(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", "first prompts")
         writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", "second prompts")
         latest = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
-        # latest is always overwritten with extracted prompts for the most recent run
         assert "SPEC-1 Investigation Prompts — 2026-04-12" in latest
     finally:
         writer.BRIEFS_DIR = original_dir
