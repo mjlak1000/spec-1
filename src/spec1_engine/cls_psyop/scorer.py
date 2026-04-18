@@ -23,6 +23,7 @@ Input:
 Output:
   Dict: topic, score, classification, patterns_fired, timestamp, run_id.
   Result is also appended to data/psyop_signals.jsonl (append-only, single-writer).
+  Persisted JSONL records include an additional store-managed written_at field.
 """
 
 from __future__ import annotations

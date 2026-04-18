@@ -72,10 +72,12 @@ def _build_psyop_signal(
     all_sources: list[str] = []
     velocities: list[float] = []
 
-    for sig, ps in zip(signals, parsed_signals):
-        all_sources.append(sig.source)
+    for ps in parsed_signals:
         all_entities.extend(ps.entities[:5])
         all_keywords.extend(ps.keywords[:5])
+
+    for sig in signals:
+        all_sources.append(sig.source)
         velocities.append(float(sig.velocity))
 
     topic_counts = Counter(all_keywords)
@@ -183,12 +185,12 @@ def run_cycle(
     if verbose:
         print(f"\n[Psyop] Scoring signal batch for influence-operation patterns...")
     try:
-        from spec1_engine.cls_psyop.scorer import score_psyop
+        from spec1_engine.cls_psyop.scorer import DEFAULT_STORE_PATH, score_psyop
         psyop_signal = _build_psyop_signal(signals, parsed_signals)
         psyop_result = score_psyop(
             psyop_signal,
             run_id=run_id,
-            store_path=Path("data/psyop_signals.jsonl"),
+            store_path=DEFAULT_STORE_PATH,
         )
         stats["psyop_score"] = psyop_result["score"]
         stats["psyop_classification"] = psyop_result["classification"]
@@ -200,7 +202,7 @@ def run_cycle(
                 f"patterns={psyop_result['patterns_fired'] or '(none)'}"
             )
     except Exception as exc:
-        logger.error("Psyop scoring step failed: %s", exc)
+        logger.exception("Psyop scoring step failed: %s", exc)
         stats["errors"].append(f"psyop:{exc}")
         if verbose:
             print(f"      [WARN] Psyop scoring failed: {exc}")
