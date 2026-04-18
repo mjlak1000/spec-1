@@ -207,7 +207,7 @@ def test_generate_brief_no_api_key_returns_fallback():
         os.environ.pop("ANTHROPIC_API_KEY", None)
         brief, prompts = generate_brief(records, stats)
     assert "## SPEC-1 DAILY BRIEF" in brief
-    assert "AI brief unavailable" in brief
+    assert "API key not configured" in brief
     assert prompts == ""
 
 
@@ -407,9 +407,6 @@ def test_write_brief_creates_dir_if_missing(tmp_path):
 
 # ─── writer.py — prompts artifact tests ──────────────────────────────────────
 
-SAMPLE_PROMPTS = "## SYSTEM PROMPT\n\nYou are an editor.\n\n---\n\n## USER PROMPT\n\nWrite a brief.\n"
-
-
 def test_write_brief_with_prompts_creates_dated_prompts_file(tmp_path):
     from spec1_engine.briefing import writer
     original_dir = writer.BRIEFS_DIR
@@ -453,7 +450,6 @@ def test_write_brief_without_prompts_still_creates_prompts_files(tmp_path):
     writer.BRIEFS_DIR = tmp_path / "briefs"
     try:
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00")
-        # Prompts files are always written (extracted from brief content)
         assert (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").exists()
         assert (writer.BRIEFS_DIR / "spec1_prompts_latest.md").exists()
     finally:
@@ -468,7 +464,6 @@ def test_write_brief_prompts_latest_overwritten_each_run(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", "first prompts")
         writer.write_brief(SAMPLE_BRIEF, "run-002", "2026-04-12T06:00:00+00:00", "second prompts")
         latest = (writer.BRIEFS_DIR / "spec1_prompts_latest.md").read_text(encoding="utf-8")
-        # Latest is always overwritten; content is extracted from brief (not the prompts arg)
         assert "SPEC-1 Investigation Prompts — 2026-04-12" in latest
     finally:
         writer.BRIEFS_DIR = original_dir
