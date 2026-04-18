@@ -439,6 +439,7 @@ def test_write_brief_with_prompts_dated_file_content(tmp_path):
         writer.write_brief(SAMPLE_BRIEF, "run-001", "2026-04-11T06:00:00+00:00", SAMPLE_PROMPTS)
         content = (writer.BRIEFS_DIR / "spec1_prompts_2026-04-11.md").read_text(encoding="utf-8")
         assert "SPEC-1 Investigation Prompts" in content
+        assert "2026-04-11" in content
     finally:
         writer.BRIEFS_DIR = original_dir
 
@@ -472,6 +473,7 @@ def test_write_brief_prompts_latest_overwritten_each_run(tmp_path):
 
 @pytest.fixture(scope="module")
 def api_client():
+    import spec1_engine.api.app  # pre-import so patch can resolve the module
     with patch("spec1_engine.api.app.build_scheduler") as mock_build, \
          patch("spec1_engine.api.app.maybe_run_on_start"):
         mock_sched = MagicMock()
