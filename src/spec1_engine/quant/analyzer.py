@@ -19,12 +19,12 @@ from spec1_engine.quant.collector import TICKER_SECTOR
 
 # Classification weight — how much outcome confidence feeds into final score
 CLASSIFICATION_WEIGHTS: dict[str, float] = {
-    "Corroborated": 1.0,
-    "Escalate":     0.85,
-    "Investigate":  0.70,
-    "Monitor":      0.55,
-    "Conflicted":   0.35,
-    "Archive":      0.15,
+    "CORROBORATED": 1.0,
+    "ESCALATE":     0.85,
+    "INVESTIGATE":  0.70,
+    "MONITOR":      0.55,
+    "CONFLICTED":   0.35,
+    "ARCHIVE":      0.15,
 }
 
 # Sector credibility weights — defense/cyber higher signal-to-noise for SPEC-1

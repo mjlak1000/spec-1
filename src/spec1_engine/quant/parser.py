@@ -26,29 +26,39 @@ def _signal_id(ticker: str, date: datetime) -> str:
     return "q-" + hashlib.sha256(raw.encode()).hexdigest()[:14]
 
 
-def _relative_volume(df: pd.DataFrame, idx: int) -> float:
-    """Volume at row idx divided by 30-day average volume (excluding that row)."""
+def _relative_volume(df: pd.DataFrame, idx: int | None = None) -> float:
+    """Volume at `idx` divided by rolling 30-day average up to that row."""
     try:
         col = _get_col(df, "Volume")
-        if col is None:
+        if col is None or len(df) == 0:
             return 1.0
-        start = max(0, idx - _LOOKBACK_DAYS)
-        window = df[col].iloc[start:idx]
-        avg = float(window.mean()) if len(window) > 0 else 0.0
-        current = float(df[col].iloc[idx])
+        row = len(df) - 1 if idx is None else idx
+        vol_series = df[col]
+        if isinstance(vol_series, pd.DataFrame):
+            vol_series = vol_series.iloc[:, 0]
+        series_up_to = vol_series.iloc[:row + 1]
+        if len(series_up_to) < 2:
+            return 1.0
+        rolling_avg = series_up_to.rolling(window=30, min_periods=1).mean()
+        avg = float(rolling_avg.iloc[-1])
+        current = float(series_up_to.iloc[-1])
         return round(current / avg, 4) if avg > 0 else 1.0
     except Exception:
         return 1.0
 
 
-def _daily_return(df: pd.DataFrame, idx: int) -> float:
-    """(close[idx] - close[idx-1]) / close[idx-1]."""
+def _daily_return(df: pd.DataFrame, idx: int | None = None) -> float:
+    """(close[idx] - close[idx-1]) / close[idx-1]. Returns 0.0 when idx == 0."""
     try:
         col = _get_col(df, "Close")
-        if col is None or idx == 0:
+        row = len(df) - 1 if idx is None else idx
+        if col is None or row == 0:
             return 0.0
-        prev = float(df[col].iloc[idx - 1])
-        curr = float(df[col].iloc[idx])
+        close_series = df[col]
+        if isinstance(close_series, pd.DataFrame):
+            close_series = close_series.iloc[:, 0]
+        prev = float(close_series.iloc[row - 1])
+        curr = float(close_series.iloc[row])
         return round((curr - prev) / prev, 6) if prev != 0 else 0.0
     except Exception:
         return 0.0
@@ -79,10 +89,16 @@ def _get_val(df: pd.DataFrame, name: str, idx: int) -> float:
 def parse_row(
     ticker: str,
     df: pd.DataFrame,
-    idx: int,
+    idx: int | None = None,
     run_id: str = "",
 ) -> Signal:
-    """Convert one OHLCV row into a Signal."""
+    """Convert an OHLCV row into a Signal. Uses last row when idx is None."""
+    if df.empty:
+        raise ValueError(f"DataFrame for {ticker} is empty")
+
+    row = len(df) - 1 if idx is None else idx
+    # alias so downstream references still work
+    idx = row
     ts = df.index[idx]
     if hasattr(ts, "to_pydatetime"):
         published_at = ts.to_pydatetime()
@@ -136,16 +152,28 @@ def parse_dataframe(
 ) -> list[Signal]:
     """Parse a full OHLCV DataFrame into Signal instances.
 
-    When latest_only=True (default), only the most recent row is returned.
+    When latest_only=True (default), only the most recent row is returned
+    (but using full historical data for velocity/volume calculations).
     Pass latest_only=False to get one Signal per row (for backtesting).
     """
     if df.empty:
         return []
-    indices = [len(df) - 1] if latest_only else list(range(len(df)))
+
     signals: list[Signal] = []
-    for idx in indices:
+
+    if latest_only:
+        # Return only the latest row, but pass the full DataFrame for calculations
         try:
-            signals.append(parse_row(ticker, df, idx, run_id=run_id))
+            signals.append(parse_row(ticker, df, run_id=run_id))
         except Exception as exc:
-            logger.error("Failed to parse row %d for %s: %s", idx, ticker, exc)
+            logger.error("Failed to parse latest row for %s: %s", ticker, exc)
+    else:
+        # For backtesting: one Signal per row using history up to that row
+        for i in range(len(df)):
+            df_slice = df.iloc[:i + 1].copy()
+            try:
+                signals.append(parse_row(ticker, df_slice, run_id=run_id))
+            except Exception as exc:
+                logger.error("Failed to parse row %d for %s: %s", i, ticker, exc)
+
     return signals

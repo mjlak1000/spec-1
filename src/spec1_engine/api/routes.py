@@ -123,6 +123,36 @@ def brief_index() -> list[dict]:
     return list(reversed(entries))
 
 
+@router.get("/brief/prompts/latest")
+def brief_prompts_latest() -> dict:
+    """Return the most recently generated Claude investigation prompts.
+
+    Returns {"prompts": markdown_string, "date": str, "lead_count": int}.
+    404 if no prompts file has been generated yet.
+    """
+    briefs_dir = _brief_writer.BRIEFS_DIR
+    latest = briefs_dir / "spec1_prompts_latest.md"
+    if not latest.exists():
+        raise HTTPException(status_code=404, detail="No prompts file generated yet.")
+    prompts_text = latest.read_text(encoding="utf-8")
+    lead_count = prompts_text.count("**CLAUDE PROMPT:**")
+    index_path = briefs_dir / "brief_index.jsonl"
+    date_str = None
+    if index_path.exists():
+        last = None
+        for line in index_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                last = json.loads(line)
+            except json.JSONDecodeError:
+                pass
+        if last:
+            date_str = last.get("date")
+    return {"prompts": prompts_text, "date": date_str, "lead_count": lead_count}
+
+
 @router.get("/brief/{date}")
 def brief_by_date(date: str) -> dict:
     """Return the brief for a specific date (YYYY-MM-DD)."""
@@ -132,43 +162,105 @@ def brief_by_date(date: str) -> dict:
     return {"brief": brief_path.read_text(encoding="utf-8"), "date": date}
 
 
-# ── Congressional ─────────────────────────────────────────────────────────────
+# ── Workspace: Investigation Cases ───────────────────────────────────────────
 
-CONGRESSIONAL_STORE_PATH = Path("spec1_congressional_intelligence.jsonl")
+@router.post("/workspace/cases")
+def create_case(data: dict) -> dict:
+    """Create a new investigation case.
+
+    Body:
+    {
+        "title": "Case Title",
+        "question": "Investigation Question",
+        "tags": ["tag1", "tag2"]
+    }
+    """
+    try:
+        from spec1_engine.workspace.case import open_case
+        title = data.get("title")
+        question = data.get("question")
+        tags = data.get("tags", [])
+
+        if not title or not question:
+            raise ValueError("title and question are required")
+
+        case = open_case(title, question, tags)
+        return {
+            "case_id": case.case_id,
+            "title": case.title,
+            "question": case.question,
+            "status": case.status,
+            "opened_at": case.opened_at.isoformat(),
+            "tags": case.tags,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/congressional/cycle/run")
-def congressional_cycle_run() -> dict:
-    """Trigger a congressional trade cycle in a background thread."""
-    rid = new_run_id()
+@router.get("/workspace/cases")
+def list_cases_endpoint(status: str = None) -> dict:
+    """Get all cases, optionally filtered by status."""
+    try:
+        from spec1_engine.workspace.case import list_cases
+        cases = list_cases(status=status)
+        return {
+            "cases": [
+                {
+                    "case_id": c.case_id,
+                    "title": c.title,
+                    "status": c.status,
+                    "signals_matched": len(c.signal_ids),
+                    "findings": len(c.findings),
+                    "confidence": c.confidence,
+                }
+                for c in cases
+            ],
+            "count": len(cases),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    def _run() -> None:
-        from spec1_engine.congressional.cycle import run_congressional_cycle
-        try:
-            run_congressional_cycle(run_id=rid, verbose=False)
-        except Exception as exc:
-            import logging
-            logging.getLogger(__name__).error("Congressional cycle failed: %s", exc)
 
-    t = threading.Thread(target=_run, daemon=True, name=f"congressional-cycle-{rid}")
-    t.start()
-    return {"status": "triggered", "run_id": rid, "timestamp": _now_iso()}
+@router.get("/workspace/cases/{case_id}")
+def get_case_endpoint(case_id: str) -> dict:
+    """Get details for a specific case."""
+    try:
+        from spec1_engine.workspace.case import get_case
+        case = get_case(case_id)
+        return {
+            "case_id": case.case_id,
+            "title": case.title,
+            "question": case.question,
+            "status": case.status,
+            "tags": case.tags,
+            "opened_at": case.opened_at.isoformat(),
+            "updated_at": case.updated_at.isoformat(),
+            "signal_ids": case.signal_ids,
+            "findings": case.findings,
+            "research_runs": case.research_runs,
+            "confidence": case.confidence,
+        }
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/congressional/status")
-def congressional_status() -> dict:
-    """Return the last congressional cycle run state."""
-    from spec1_engine.congressional.cycle import last_run_state
-    return dict(last_run_state)
-
-
-@router.get("/congressional/latest")
-def congressional_latest(
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-) -> list[dict]:
-    """Return the last N records from the congressional JSONL store."""
-    store = JsonlStore(CONGRESSIONAL_STORE_PATH)
-    return list(store.read_all())[-limit:]
+@router.post("/workspace/cases/{case_id}/close")
+def close_case_endpoint(case_id: str) -> dict:
+    """Close an investigation case and generate final report."""
+    try:
+        from spec1_engine.workspace.case import close_case
+        case = close_case(case_id)
+        return {
+            "case_id": case_id,
+            "status": "CLOSED",
+            "report_path": f"workspace/reports/report_{case_id}.md",
+        }
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Kill switch ───────────────────────────────────────────────────────────────

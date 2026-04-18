@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-load_dotenv()  # loads .env from cwd if present
+load_dotenv(encoding="utf-8-sig")  # utf-8-sig strips PowerShell BOM if present
 
 from collections import Counter
 
@@ -57,43 +57,50 @@ def _build_psyop_signal(
 ) -> dict:
     """Aggregate harvested signals into a psyop signal dict for scoring.
 
-    Derives each required field from the collected signal batch:
-    - topic: most common keyword across all parsed signals
-    - entities: deduplicated union of parsed entities (up to 20)
-    - sources: unique source names from signals
-    - narrative_markets: same as sources (each distinct feed = one media market)
-    - fara_matches: empty list — hook for future FARA integration
-    - legislation_matches: empty list — hook for future legislation integration
-    - consensus_velocity: average velocity across signals (proxy for rapid consensus)
-    - origin_traceable: True — RSS sources have verifiable origin by default
+    Args:
+        signals: List of Signal objects.
+        parsed_signals: List of ParsedSignal objects.
+
+    Returns:
+        Dict with psyop signal structure for scoring.
     """
-    all_keywords: list[str] = []
-    all_entities: list[str] = []
-    all_sources: list[str] = []
-    velocities: list[float] = []
-
+    # topic: most common keyword across parsed signals
+    all_keywords = []
     for ps in parsed_signals:
-        all_entities.extend(ps.entities[:5])
-        all_keywords.extend(ps.keywords[:5])
+        all_keywords.extend(ps.keywords)
+    topic = max(set(all_keywords), key=all_keywords.count) if all_keywords else "unknown"
 
-    for sig in signals:
-        all_sources.append(sig.source)
-        velocities.append(float(sig.velocity))
+    # entities: deduplicated union of entities
+    entities = list(set().union(*(ps.entities for ps in parsed_signals)))
 
-    topic_counts = Counter(all_keywords)
-    topic = topic_counts.most_common(1)[0][0] if topic_counts else "unknown"
-    unique_sources = list(dict.fromkeys(all_sources))  # preserve insertion order, dedupe
-    avg_velocity = sum(velocities) / len(velocities) if velocities else 0.0
+    # sources: unique source names
+    sources = list(set(sig.source for sig in signals))
+
+    # narrative_markets: same as sources (each feed = one media market)
+    narrative_markets = sources
+
+    # fara_matches: [] — hook for future FARA integration
+    fara_matches = []
+
+    # legislation_matches: [] — hook for future legislation integration
+    legislation_matches = []
+
+    # consensus_velocity: average signal velocity
+    velocities = [sig.velocity for sig in signals]
+    consensus_velocity = sum(velocities) / len(velocities) if velocities else 0.0
+
+    # origin_traceable: True (RSS sources are traceable by default)
+    origin_traceable = True
 
     return {
         "topic": topic,
-        "entities": list(dict.fromkeys(all_entities))[:20],
-        "sources": unique_sources,
-        "fara_matches": [],        # Hook: populate from FARA API integration
-        "legislation_matches": [], # Hook: populate from model-legislation DB
-        "narrative_markets": unique_sources,
-        "consensus_velocity": avg_velocity,
-        "origin_traceable": True,  # RSS sources are traceable by default
+        "entities": entities,
+        "sources": sources,
+        "fara_matches": fara_matches,
+        "legislation_matches": legislation_matches,
+        "narrative_markets": narrative_markets,
+        "consensus_velocity": consensus_velocity,
+        "origin_traceable": origin_traceable,
     }
 
 
@@ -181,31 +188,23 @@ def run_cycle(
     if verbose:
         print(f"      Parsed {len(parsed_signals)} signals")
 
-    # ── Psyop scoring — runs after collection, before brief assembly ──────────
+    # ── Psyop scoring ──────────────────────────────────────────────────────────
     if verbose:
-        print(f"\n[Psyop] Scoring signal batch for influence-operation patterns...")
+        print(f"\n[Psyop] Scoring signal batch for psyop patterns...")
     try:
-        from spec1_engine.cls_psyop.scorer import DEFAULT_STORE_PATH, score_psyop
+        from spec1_engine.cls_psyop.scorer import score_psyop
         psyop_signal = _build_psyop_signal(signals, parsed_signals)
-        psyop_result = score_psyop(
-            psyop_signal,
-            run_id=run_id,
-            store_path=DEFAULT_STORE_PATH,
-        )
-        stats["psyop_score"] = psyop_result["score"]
+        psyop_result = score_psyop(psyop_signal, run_id=run_id)
         stats["psyop_classification"] = psyop_result["classification"]
+        stats["psyop_score"] = psyop_result["score"]
         stats["psyop_patterns_fired"] = psyop_result["patterns_fired"]
         if verbose:
-            print(
-                f"      score={psyop_result['score']} "
-                f"class={psyop_result['classification']} "
-                f"patterns={psyop_result['patterns_fired'] or '(none)'}"
-            )
+            print(f"      Psyop score={psyop_result['score']} "
+                  f"class={psyop_result['classification']} "
+                  f"patterns={psyop_result['patterns_fired']}")
     except Exception as exc:
-        logger.exception("Psyop scoring step failed: %s", exc)
+        logger.error("Psyop scoring failed: %s", exc)
         stats["errors"].append(f"psyop:{exc}")
-        if verbose:
-            print(f"      [WARN] Psyop scoring failed: {exc}")
 
     # ── Step 3: Score — 4 gates ───────────────────────────────────────────────
     if verbose:
@@ -300,11 +299,12 @@ def run_cycle(
     # ── Briefing ──────────────────────────────────────────────────────────────
     try:
         from spec1_engine.briefing.generator import generate_brief
+        from spec1_engine.briefing.templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
         from spec1_engine.briefing.writer import write_brief
         if verbose:
             print(f"\n[Briefing] Generating daily intelligence brief...")
-        brief_md = generate_brief(stored_records, stats)
-        brief_path = write_brief(brief_md, run_id, stats["finished_at"])
+        brief_md, brief_prompts = generate_brief(stored_records, stats)
+        brief_path = write_brief(brief_md, run_id, stats["finished_at"], brief_prompts)
         brief_word_count = len(brief_md.split())
         stats["brief_path"] = brief_path
         stats["brief_word_count"] = brief_word_count
@@ -313,6 +313,41 @@ def run_cycle(
     except Exception as exc:
         logger.error("Briefing step failed: %s", exc)
         stats["errors"].append(f"briefing:{exc}")
+
+    # ── Case workspace: Match signals to open cases and run research ──────────
+    try:
+        from spec1_engine.workspace.tracker import match_signals_to_cases
+        from spec1_engine.workspace.researcher import run_research
+        from spec1_engine.workspace.case import update_case, list_cases as list_open_cases
+
+        if verbose:
+            print(f"\n[Workspace] Processing investigation cases...")
+
+        open_cases = list_open_cases(status="OPEN")
+        cases_updated = 0
+
+        if open_cases and signals:
+            matches = match_signals_to_cases(signals)
+            for case in open_cases:
+                matched = matches.get(case.case_id, [])
+                if matched:
+                    finding = run_research(case, matched)
+                    if finding:
+                        update_case(case.case_id, matched, finding)
+                        cases_updated += 1
+                        if verbose:
+                            print(f"  [{case.case_id}] {case.title} - {len(matched)} signal(s) matched")
+
+        stats["cases_updated"] = cases_updated
+        if verbose and cases_updated:
+            print(f"  {cases_updated} case(s) updated with research findings")
+    except ImportError:
+        # Workspace not available, continue gracefully
+        stats["cases_updated"] = 0
+    except Exception as exc:
+        logger.error("Workspace processing failed: %s", exc)
+        stats["errors"].append(f"workspace:{exc}")
+        stats["cases_updated"] = 0
 
     if verbose:
         print(f"\n{'='*60}")

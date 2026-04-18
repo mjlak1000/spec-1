@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spec1-engine"
-version = "0.2.0"
-description = "SPEC-1 Intelligence Engine — real RSS collectors, JSONL persistence, full analysis loop"
+version = "0.3.0"
+description = "SPEC-1 Intelligence Engine — full OSINT, psyop, quant, leads, briefs, API, and MCP"
 requires-python = ">=3.11"
 dependencies = [
     "feedparser>=6.0",
@@ -13,10 +13,17 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=4.9",
     "python-dateutil>=2.8",
+    "anthropic>=0.20",
+    "python-dotenv>=1.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "apscheduler>=3.10",
+    "pydantic>=2.0",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4", "pytest-cov"]
+dev = ["pytest>=7.4", "pytest-cov", "pytest-asyncio>=0.23", "httpx>=0.27"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
