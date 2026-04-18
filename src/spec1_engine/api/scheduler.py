@@ -21,7 +21,7 @@ KILL_FILE = Path(".cls_kill")
 
 
 def _guarded_cycle() -> None:
-    """Run one cycle unless the kill file is present."""
+    """Run one OSINT cycle unless the kill file is present."""
     if KILL_FILE.exists():
         logger.warning("Kill file present — skipping scheduled cycle run.")
         return
@@ -41,6 +41,26 @@ def _guarded_cycle() -> None:
         logger.error("Scheduled cycle failed: %s", exc)
 
 
+def _guarded_congressional_cycle() -> None:
+    """Run one congressional trade cycle unless the kill file is present."""
+    if KILL_FILE.exists():
+        logger.warning("Kill file present — skipping congressional cycle run.")
+        return
+
+    from spec1_engine.congressional.cycle import run_congressional_cycle
+
+    logger.info("Congressional scheduled cycle starting.")
+    try:
+        stats = run_congressional_cycle(verbose=False)
+        logger.info(
+            "Congressional cycle complete — trades=%d records=%d",
+            stats.get("trades_fetched", 0),
+            stats.get("records_stored", 0),
+        )
+    except Exception as exc:
+        logger.error("Congressional cycle failed: %s", exc)
+
+
 def build_scheduler() -> BackgroundScheduler:
     """Create and configure the BackgroundScheduler (not yet started)."""
     scheduler = BackgroundScheduler(timezone="America/Los_Angeles")
@@ -49,6 +69,14 @@ def build_scheduler() -> BackgroundScheduler:
         trigger=CronTrigger(hour=6, minute=0, timezone="America/Los_Angeles"),
         id="daily_cycle",
         name="SPEC-1 Daily Intelligence Cycle",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        _guarded_congressional_cycle,
+        trigger=CronTrigger(hour=7, minute=0, timezone="America/Los_Angeles"),
+        id="congressional_cycle",
+        name="SPEC-1 Congressional Trade Cycle",
         replace_existing=True,
         misfire_grace_time=3600,
     )

@@ -89,6 +89,18 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # Psyop assessment block
+    psyop_cls = cycle_stats.get("psyop_classification", "")
+    psyop_score = cycle_stats.get("psyop_score", 0)
+    psyop_patterns = cycle_stats.get("psyop_patterns_fired", [])
+    if psyop_cls:
+        psyop_assessment = (
+            f"Classification: {psyop_cls} | Score: {psyop_score} | "
+            f"Patterns fired: {', '.join(psyop_patterns) if psyop_patterns else '(none)'}"
+        )
+    else:
+        psyop_assessment = "(not run this cycle)"
+
     return USER_PROMPT_TEMPLATE.format(
         run_id=cycle_stats.get("run_id", "—"),
         timestamp=cycle_stats.get("finished_at", cycle_stats.get("timestamp", "—")),
@@ -101,6 +113,7 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
         geo_count=geo_count,
         cyber_count=cyber_count,
         date=date_str,
+        psyop_assessment=psyop_assessment,
     )
 
 
