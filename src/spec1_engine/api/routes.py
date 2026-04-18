@@ -132,6 +132,45 @@ def brief_by_date(date: str) -> dict:
     return {"brief": brief_path.read_text(encoding="utf-8"), "date": date}
 
 
+# ── Congressional ─────────────────────────────────────────────────────────────
+
+CONGRESSIONAL_STORE_PATH = Path("spec1_congressional_intelligence.jsonl")
+
+
+@router.post("/congressional/cycle/run")
+def congressional_cycle_run() -> dict:
+    """Trigger a congressional trade cycle in a background thread."""
+    rid = new_run_id()
+
+    def _run() -> None:
+        from spec1_engine.congressional.cycle import run_congressional_cycle
+        try:
+            run_congressional_cycle(run_id=rid, verbose=False)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Congressional cycle failed: %s", exc)
+
+    t = threading.Thread(target=_run, daemon=True, name=f"congressional-cycle-{rid}")
+    t.start()
+    return {"status": "triggered", "run_id": rid, "timestamp": _now_iso()}
+
+
+@router.get("/congressional/status")
+def congressional_status() -> dict:
+    """Return the last congressional cycle run state."""
+    from spec1_engine.congressional.cycle import last_run_state
+    return dict(last_run_state)
+
+
+@router.get("/congressional/latest")
+def congressional_latest(
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[dict]:
+    """Return the last N records from the congressional JSONL store."""
+    store = JsonlStore(CONGRESSIONAL_STORE_PATH)
+    return list(store.read_all())[-limit:]
+
+
 # ── Kill switch ───────────────────────────────────────────────────────────────
 
 @router.post("/kill")
