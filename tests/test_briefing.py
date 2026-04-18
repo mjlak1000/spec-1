@@ -407,9 +407,6 @@ def test_write_brief_creates_dir_if_missing(tmp_path):
 
 # ─── writer.py — prompts artifact tests ──────────────────────────────────────
 
-SAMPLE_PROMPTS = "## SYSTEM PROMPT\n\nYou are an editor.\n\n---\n\n## USER PROMPT\n\nWrite a brief.\n"
-
-
 def test_write_brief_with_prompts_creates_dated_prompts_file(tmp_path):
     from spec1_engine.briefing import writer
     original_dir = writer.BRIEFS_DIR
