@@ -1,30 +1,7 @@
 """Prompt templates for the SPEC-1 daily intelligence brief.
 
-Source of truth: src/spec1_engine/core/prompts/
-  system_prompt.md        — system prompt sent to the model
-  user_prompt_template.md — user prompt template (Python .format() placeholders)
-
-Do not edit prompt text in this file. Edit the .md files above.
-This module loads them at import time; fallback strings are provided
-for environments where the data files are not on disk.
-"""
-
-from __future__ import annotations
-
-from pathlib import Path
-
-_PROMPTS_DIR = Path(__file__).parent.parent / "core" / "prompts"
-
-
-def _load(filename: str, fallback: str) -> str:
-    path = _PROMPTS_DIR / filename
-    return path.read_text(encoding="utf-8") if path.exists() else fallback
-
-
-# ── Fallback strings (kept in sync with .md files; used only when files absent) ──
-
-_SYSTEM_FALLBACK = """You are a senior editor on the national security desk of a serious newspaper.
-Write with the precision of the New York Times and the depth of Foreign Affairs.
+SYSTEM_PROMPT = """You are a senior editor on the national security desk of a serious newspaper.
+Write with precision. Every word earns its place.
 Your readers are informed professionals.
 
 Never explain what NATO is. Never define APT29. Write for the expert.

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "spec1-engine"
 version = "0.4.0"
 description = "SPEC-1 Intelligence Engine — full OSINT, psyop, quant, leads, briefs, API, and MCP"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
     "feedparser>=6.0",
     "requests>=2.31",

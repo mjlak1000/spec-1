@@ -5,6 +5,9 @@ RSS feeds, FARA filings, congressional records, and narrative sources; scores th
 4-gate pipeline; detects psychological operations; generates actionable leads and world briefs;
 and persists everything to JSONL and SQLite.
 
+For a high-level overview of the project's purpose and design decisions, see
+[PORTFOLIO_SUMMARY.md](PORTFOLIO_SUMMARY.md).
+
 ## Architecture
 
 ```
@@ -15,12 +18,16 @@ RSS/FARA/Congress/Narrative
         │
         ▼
   spec1_engine  (harvest → parse → score → investigate → verify → analyze)
+  ├── analysts      (credibility weighting, source discovery)
+  ├── briefing      (daily brief generation)
+  ├── quant         (market signal analysis)
+  └── workspace     (case tracking, researcher CLI)
         │
-        ├── cls_psyop     (psychological operation detection)
-        ├── cls_quant     (market intelligence)
-        ├── cls_leads     (actionable leads)
+        ├── cls_psyop       (psychological operation detection)
+        ├── cls_quant       (market intelligence)
+        ├── cls_leads       (actionable leads)
         ├── cls_world_brief (daily intelligence brief)
-        └── cls_db        (dual-write: JSONL + SQLite)
+        └── cls_db          (dual-write: JSONL + SQLite)
                 │
                 ▼
           spec1_api  (FastAPI HTTP server)
@@ -40,6 +47,9 @@ python -m spec1_api.main
 
 # MCP server (Claude integration)
 python mcp_server.py
+
+# Workspace CLI (case management)
+python -m spec1_engine.workspace
 ```
 
 ## Running Tests
@@ -56,6 +66,20 @@ Copy `.env.example` to `.env` and configure:
 cp .env.example .env
 # Edit .env — at minimum set ANTHROPIC_API_KEY
 ```
+
+Key variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | — | Required for investigation and briefing |
+| `SPEC1_STORE_PATH` | `spec1_intelligence.jsonl` | Intelligence record store |
+| `SPEC1_DB_PATH` | `spec1.db` | SQLite database path |
+| `SPEC1_API_HOST` | `0.0.0.0` | API bind address |
+| `SPEC1_API_PORT` | `8000` | API port |
+| `SPEC1_CRON_HOUR` | `6` | Scheduled cycle hour (24h) |
+| `SPEC1_TIMEZONE` | `America/Los_Angeles` | Scheduler timezone |
+| `SPEC1_FEED_TIMEOUT` | `15` | Feed fetch timeout (seconds) |
+| `SPEC1_QUANT_ENABLED` | `false` | Enable quantitative market pipeline |
 
 ## Key Sources
 
@@ -75,6 +99,7 @@ cp .env.example .env
 | GET | /signals | Latest harvested signals |
 | GET | /intel | Intelligence records |
 | GET | /leads | Actionable leads |
+| POST | /leads | Create a lead |
 | GET | /brief | Latest world brief |
 | GET | /psyop | PsyOp detections |
 | GET | /fara | FARA filings |
