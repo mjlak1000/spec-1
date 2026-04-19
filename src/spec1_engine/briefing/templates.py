@@ -51,8 +51,13 @@ DOMAIN BREAKDOWN:
 Geopolitics: {geo_count} signals
 Cyber / Info Ops: {cyber_count} signals
 
-PSYOP ASSESSMENT:
-{psyop_assessment}
+PSYOP / NARRATIVE DETECTION:
+psyop_classification: {psyop_classification}
+psyop_score: {psyop_score}
+patterns_fired: {psyop_patterns_fired}
+
+Evidence chains ({evidence_count}):
+{evidence_chains}
 
 Write the daily intelligence brief using this exact structure:
 
@@ -74,6 +79,12 @@ Confidence score. What to watch next. If zero elevated signals, say so plainly.]
 
 **Cyber / Info Ops**
 [Narrative summary. Attribution confidence where relevant. 2-4 paragraphs.]
+
+**Psyop / Narrative Analysis**
+[For each evidence chain, write one paragraph that cites the specific excerpts \
+and sources. Do not just state the pattern fired — show the evidence that \
+triggered it and let the reader judge whether the pattern is real. \
+If no evidence chains exist, write: "No psyop patterns detected this cycle."]
 
 ### Story Leads
 [3-5 specific, actionable leads. Each lead must follow this exact format:

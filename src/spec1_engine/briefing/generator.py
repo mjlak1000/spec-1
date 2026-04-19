@@ -89,17 +89,33 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    # Psyop assessment block
-    psyop_cls = cycle_stats.get("psyop_classification", "")
-    psyop_score = cycle_stats.get("psyop_score", 0)
-    psyop_patterns = cycle_stats.get("psyop_patterns_fired", [])
-    if psyop_cls:
-        psyop_assessment = (
-            f"Classification: {psyop_cls} | Score: {psyop_score} | "
-            f"Patterns fired: {', '.join(psyop_patterns) if psyop_patterns else '(none)'}"
-        )
+    # Format evidence chains for the template
+    raw_chains: list[dict] = cycle_stats.get("psyop_evidence_chains", [])
+    if raw_chains:
+        chain_blocks = []
+        for ec in raw_chains:
+            sources_str = ", ".join(
+                m.get("source", "") for m in ec.get("source_metadata", [])
+            ) or "—"
+            excerpts = ec.get("raw_excerpts", [])
+            excerpts_str = " | ".join(
+                f"[{x.get('source', '')}] {x.get('text_snippet', '')[:200]}"
+                for x in excerpts[:3]
+            ) or "—"
+            xrefs = ec.get("cross_references", [])
+            xrefs_str = ", ".join(xrefs[:5]) or "none"
+            block = (
+                f"  Pattern: {ec.get('pattern_name', '—')} | "
+                f"Confidence: {ec.get('confidence', 0.0):.2f}\n"
+                f"  Summary: {ec.get('summary', '—')}\n"
+                f"  Sources: {sources_str}\n"
+                f"  Excerpts: {excerpts_str}\n"
+                f"  Cross-references: {xrefs_str}"
+            )
+            chain_blocks.append(block)
+        evidence_chains_str = "\n\n".join(chain_blocks)
     else:
-        psyop_assessment = "(not run this cycle)"
+        evidence_chains_str = "(none)"
 
     return USER_PROMPT_TEMPLATE.format(
         run_id=cycle_stats.get("run_id", "—"),
@@ -113,7 +129,11 @@ def _build_prompt(records: list[dict], cycle_stats: dict) -> str:
         geo_count=geo_count,
         cyber_count=cyber_count,
         date=date_str,
-        psyop_assessment=psyop_assessment,
+        psyop_classification=cycle_stats.get("psyop_classification", "—"),
+        psyop_score=cycle_stats.get("psyop_score", "—"),
+        psyop_patterns_fired=cycle_stats.get("psyop_patterns_fired", []),
+        evidence_count=len(raw_chains),
+        evidence_chains=evidence_chains_str,
     )
 
 
