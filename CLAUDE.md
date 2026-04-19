@@ -238,3 +238,69 @@ All test functions must be fully implemented — no `pass` stubs, no `pytest.ski
 6. `mcp_server.py` exposes tools: `run_cycle`, `get_signals`, `get_intel`, `get_leads`, `get_brief`, `get_psyop`, `get_fara`
 7. Tests use `tmp_path` fixtures and mock external network calls
 8. `pyproject.toml` lists all packages under `[tool.setuptools.packages.find]`
+
+## Governance & Agent Constraints
+
+### Frozen Core
+
+`src/spec1_engine/core/` is the frozen core. It contains canonical schemas,
+ID generation, logging utilities, and the prompt files under `core/prompts/`.
+
+**Rules:**
+- Agents may **import** from `core/` but may **not modify** it
+- Any change to `core/` requires explicit human approval and a semantic version bump
+- `core/prompts/*.md` are the authoritative source for all prompt text —
+  no inline prompt strings may be added elsewhere in the codebase
+
+### Semantic Versioning
+
+`pyproject.toml` version follows MAJOR.MINOR.PATCH:
+
+| Bump | When |
+|------|------|
+| MAJOR | Breaking change to `/core` contracts or schemas |
+| MINOR | New module, scorer, adapter, or prompt surface |
+| PATCH | Bug fix, CI, infra, test, docs |
+
+Every PR must declare its version bump type in the PR description.
+
+### Agent Write Surfaces
+
+Agents may freely modify:
+- `src/spec1_engine/signal/`
+- `src/spec1_engine/investigation/`
+- `src/spec1_engine/intelligence/`
+- `src/spec1_engine/briefing/` (except `templates.py` imports — edit `.md` files instead)
+- `src/spec1_engine/tools/`
+- `src/cls_osint/`, `src/cls_psyop/`, `src/cls_quant/`, `src/cls_leads/`
+- `src/spec1_api/`
+- `tests/`
+
+Agents must **NOT** modify without human approval:
+- `src/spec1_engine/core/` (any file)
+- `src/spec1_engine/core/prompts/` (any `.md` file)
+- `pyproject.toml` version field
+- `CLAUDE.md`
+- `.github/pull_request_template.md`
+
+### Branch Rules
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Human-curated stable releases only |
+| `dev` | Integration branch — merge agent branches here first |
+| `claude/*` or `agent/*` | Agent work — never merge directly to `main` |
+
+### Generated Artifacts
+
+Briefs, logs, and historical outputs must not be committed to `main`.
+Write them to `generated/` (gitignored) or a dedicated `generated` branch.
+The `briefs/` directory in the repo is legacy — new runs should use `generated/briefs/`.
+
+### PR Requirements
+
+Every PR must include (use `.github/pull_request_template.md`):
+1. Summary of changes
+2. Version bump type and justification
+3. Confirmation that `/core` was not modified (or justification if it was)
+4. Test status (`pytest` + `flake8` clean)
