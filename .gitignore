@@ -32,3 +32,6 @@ htmlcov/
 *.jsonl
 *.log
 .DS_Store
+briefs/
+workspace/
+*.jsonl
