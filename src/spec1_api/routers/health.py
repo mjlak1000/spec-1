@@ -6,6 +6,7 @@ import os
 
 from fastapi import APIRouter
 
+from spec1_api import __version__
 from spec1_api.schemas import HealthResponse
 
 router = APIRouter(tags=["health"])
@@ -16,6 +17,6 @@ def health_check() -> HealthResponse:
     """Return service health status."""
     return HealthResponse(
         status="ok",
-        version="0.3.0",
+        version=__version__,
         environment=os.environ.get("SPEC1_ENVIRONMENT", "production"),
     )
