@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class HealthResponse(BaseModel):
     status: str = "ok"
-    version: str = "0.3.0"
+    version: str = "unknown"
     environment: str = "production"
 
 
