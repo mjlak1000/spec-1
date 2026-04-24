@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPEC-1 Intelligence Engine</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0d0f13;
+    --bg2:     #12151c;
+    --bg3:     #191d28;
+    --border:  #252b3a;
+    --text:    #cdd6f4;
+    --muted:   #6b7280;
+    --green:   #3dd68c;
+    --amber:   #f59e0b;
+    --red:     #f38ba8;
+    --blue:    #89b4fa;
+    --accent:  #3dd68c;
+    --mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --sans:    'Inter', system-ui, sans-serif;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+
+  /* ── Layout ──────────────────────────────────────────────── */
+  .layout { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 52px; background: var(--bg2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: .05em; color: var(--accent); }
+  .logo-badge { background: var(--accent); color: var(--bg); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 3px; letter-spacing: .1em; }
+
+  #api-status { display: flex; align-items: center; gap: 8px; font-size: 12px; font-family: var(--mono); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
+  .dot.green { background: var(--green); color: var(--green); }
+  .dot.amber { background: var(--amber); color: var(--amber); }
+
+  .start-btn {
+    margin-left: 8px; padding: 3px 10px; background: transparent;
+    border: 1px solid var(--amber); color: var(--amber); border-radius: 4px;
+    cursor: pointer; font-size: 11px; font-family: var(--mono); transition: background .15s;
+  }
+  .start-btn:hover { background: rgba(245,158,11,.15); }
+
+  .body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ─────────────────────────────────────────────── */
+  nav {
+    width: 210px; flex-shrink: 0; background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto; padding: 12px 0;
+  }
+  .nav-section { padding: 8px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; cursor: pointer; font-size: 13px; color: var(--muted);
+    border-left: 3px solid transparent; transition: all .12s; user-select: none;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(61,214,140,.06); }
+  .nav-item .icon { font-size: 14px; width: 18px; text-align: center; }
+  .nav-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+
+  /* ── Main ────────────────────────────────────────────────── */
+  main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+  .panel { display: none; max-width: 860px; }
+  .panel.active { display: block; }
+  .panel-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+  .panel-sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  /* ── Spinner ─────────────────────────────────────────────── */
+  .loading { color: var(--muted); font-family: var(--mono); font-size: 13px; padding: 24px 0; display: flex; align-items: center; gap: 8px; }
+  .loading::before { content: ''; display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Brief rendered output ───────────────────────────────── */
+  .brief-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+  .brief-id-row { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+  .tag.date { color: var(--accent); background: rgba(61,214,140,.1); border: 1px solid rgba(61,214,140,.25); }
+  .tag.run  { color: var(--muted); background: var(--bg3); border: 1px solid var(--border); }
+
+  /* Markdown rendered styles */
+  .md h1 { font-size: 17px; font-weight: 700; margin: 0 0 14px; line-height: 1.4; }
+  .md h2 { font-size: 15px; font-weight: 700; margin: 22px 0 8px; color: var(--text); }
+  .md h3 { font-size: 13px; font-weight: 700; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+  .md h4 { font-size: 13px; font-weight: 600; margin: 14px 0 5px; }
+  .md p  { line-height: 1.75; margin-bottom: 10px; color: #b8c9e4; }
+  .md ul, .md ol { margin: 8px 0 10px 22px; }
+  .md li { line-height: 1.65; margin-bottom: 4px; }
+  .md strong { font-weight: 700; color: var(--text); }
+  .md em { font-style: italic; color: #a6b8d4; }
+  .md code { font-family: var(--mono); font-size: 11px; background: var(--bg3); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; }
+  .md blockquote { border-left: 3px solid var(--accent); padding: 6px 14px; margin: 10px 0; background: rgba(61,214,140,.05); color: #a6b8d4; }
+  .md hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+  .brief-meta { display: flex; gap: 16px; font-size: 11px; font-family: var(--mono); color: var(--muted); margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+  /* ── Archive cards ───────────────────────────────────────── */
+  .archive-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .archive-count { font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg3); border: 1px solid var(--border); padding: 3px 10px; border-radius: 4px; }
+  .brief-cards { display: flex; flex-direction: column; gap: 10px; }
+  .brief-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .brief-card:hover { border-color: var(--accent); background: rgba(61,214,140,.04); }
+  .card-date { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 6px; }
+  .card-meta { display: flex; gap: 14px; font-size: 11px; font-family: var(--mono); color: var(--muted); margin-top: 8px; }
+
+  /* ── Back button ─────────────────────────────────────────── */
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px;
+    padding: 6px 14px; background: transparent; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 5px; cursor: pointer;
+    font-size: 12px; font-family: var(--mono); transition: all .12s;
+  }
+  .back-btn:hover { border-color: var(--text); color: var(--text); }
+
+  /* ── State boxes (empty / offline) ───────────────────────── */
+  .state-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 28px 24px; }
+  .state-box p { color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .state-box pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--text); overflow-x: auto; white-space: pre; margin-bottom: 10px; line-height: 1.65; }
+
+  /* ── Copy button ─────────────────────────────────────────── */
+  .copy-btn {
+    padding: 4px 12px; background: transparent; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 4px; cursor: pointer;
+    font-size: 11px; font-family: var(--mono); transition: all .12s;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+  /* ── Local Access panel ──────────────────────────────────── */
+  .cmd-grid { display: flex; flex-direction: column; gap: 16px; }
+  .cmd-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .cmd-label { padding: 8px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .cmd-body { padding: 14px 16px; }
+  .cmd-body pre { font-family: var(--mono); font-size: 12px; color: var(--text); overflow-x: auto; white-space: pre; line-height: 1.7; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Header ────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <span class="logo-badge">S1</span>
+      SPEC-1 Intelligence Engine
+    </div>
+    <div id="api-status">
+      <span class="dot amber" id="status-dot"></span>
+      <span id="status-text">Checking API…</span>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <!-- ── Sidebar ───────────────────────────────────────────── -->
+    <nav>
+      <div class="nav-section">Intelligence</div>
+      <div class="nav-item active" data-panel="panel-brief" onclick="showPanel('panel-brief')">
+        <span class="icon">📋</span> Daily Brief
+      </div>
+      <div class="nav-item" data-panel="panel-archive" onclick="showPanel('panel-archive')">
+        <span class="icon">🗂</span> Archive
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-section">Tools</div>
+      <div class="nav-item" data-panel="panel-local" onclick="showPanel('panel-local')">
+        <span class="icon">⌨</span> Local Access
+      </div>
+    </nav>
+
+    <!-- ── Main content ──────────────────────────────────────── -->
+    <main>
+
+      <!-- Daily Brief panel -->
+      <div class="panel active" id="panel-brief">
+        <div class="panel-title">📋 Daily Brief</div>
+        <div class="panel-sub">Latest world intelligence brief — loaded live from the SPEC-1 API</div>
+        <div id="brief-content"><div class="loading">Loading latest brief…</div></div>
+      </div>
+
+      <!-- Archive panel -->
+      <div class="panel" id="panel-archive">
+        <div class="panel-title">🗂 Brief Archive</div>
+        <div class="panel-sub">All generated briefs, newest first — click a card to read</div>
+        <div id="archive-content"><div class="loading">Loading index…</div></div>
+      </div>
+
+      <!-- Local Access panel -->
+      <div class="panel" id="panel-local">
+        <div class="panel-title">⌨ Local Access</div>
+        <div class="panel-sub">Terminal shortcuts for working with SPEC-1 directly</div>
+        <div class="cmd-grid">
+
+          <div class="cmd-block">
+            <div class="cmd-label">Read latest brief</div>
+            <div class="cmd-body">
+              <pre>cat ~/spec-1/briefs/spec1_brief_latest.md</pre>
+              <button class="copy-btn" onclick="copyText(this, 'cat ~/spec-1/briefs/spec1_brief_latest.md')">Copy</button>
+            </div>
+          </div>
+
+          <div class="cmd-block">
+            <div class="cmd-label">List all briefs</div>
+            <div class="cmd-body">
+              <pre>ls ~/spec-1/briefs/spec1_brief_*.md</pre>
+              <button class="copy-btn" onclick="copyText(this, 'ls ~/spec-1/briefs/spec1_brief_*.md')">Copy</button>
+            </div>
+          </div>
+
+          <div class="cmd-block">
+            <div class="cmd-label">Read specific date</div>
+            <div class="cmd-body">
+              <pre>cat ~/spec-1/briefs/spec1_brief_2026-04-24.md</pre>
+              <button class="copy-btn" onclick="copyText(this, 'cat ~/spec-1/briefs/spec1_brief_2026-04-24.md')">Copy</button>
+            </div>
+          </div>
+
+          <div class="cmd-block">
+            <div class="cmd-label">Start API server</div>
+            <div class="cmd-body">
+              <pre>cd ~/spec-1 &amp;&amp; export PYTHONPATH="src" &amp;&amp; python -m spec1_engine.main</pre>
+              <button class="copy-btn" onclick="copyText(this, 'cd ~/spec-1 &amp;&amp; export PYTHONPATH=&quot;src&quot; &amp;&amp; python -m spec1_engine.main')">Copy</button>
+            </div>
+          </div>
+
+          <div class="cmd-block">
+            <div class="cmd-label">Run intelligence cycle manually</div>
+            <div class="cmd-body">
+<pre>cd ~/spec-1 &amp;&amp; export PYTHONPATH="src" &amp;&amp; \
+ANTHROPIC_API_KEY=$(cat .env | grep ANTHROPIC_API_KEY | \
+cut -d= -f2 | tr -d '\r') python -m spec1_engine.app.cycle</pre>
+              <button class="copy-btn" onclick="copyText(this, 'cd ~/spec-1 && export PYTHONPATH=&quot;src&quot; && ANTHROPIC_API_KEY=$(cat .env | grep ANTHROPIC_API_KEY | cut -d= -f2 | tr -d \'\\r\') python -m spec1_engine.app.cycle')">Copy</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── Start-API overlay ──────────────────────────────────────── -->
+<div id="start-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
+  z-index:100; align-items:center; justify-content:center;">
+  <div style="background:var(--bg2); border:1px solid var(--border); border-radius:10px;
+    padding:28px; max-width:560px; width:90%;">
+    <div style="font-size:15px; font-weight:700; margin-bottom:12px; color:var(--amber);">API Offline</div>
+    <p style="color:var(--muted); font-size:13px; margin-bottom:16px; line-height:1.6;">
+      The SPEC-1 API is not running. Start it with:
+    </p>
+    <pre style="background:var(--bg); border:1px solid var(--border); border-radius:6px;
+      padding:14px; font-family:var(--mono); font-size:12px; color:var(--text);
+      overflow-x:auto; margin-bottom:14px; line-height:1.6;">cd ~/spec-1 &amp;&amp; export PYTHONPATH="src" &amp;&amp; python -m spec1_engine.main</pre>
+    <div style="display:flex; gap:10px;">
+      <button class="copy-btn" onclick="copyText(this, 'cd ~/spec-1 && export PYTHONPATH=&quot;src&quot; && python -m spec1_engine.main')">Copy command</button>
+      <button class="copy-btn" onclick="closeOverlay()" style="margin-left:auto;">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000/api/v1';
+let _online = false;
+
+// ── Escape helpers ────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Markdown → HTML (simple) ──────────────────────────────────────────────────
+
+function renderMd(raw) {
+  if (!raw) return '';
+  // Escape HTML entities before any other processing
+  let t = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Inline: code spans, bold+italic, bold, italic
+  t = t.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  const lines = t.split('\n');
+  const out = [];
+  let inUL = false, inOL = false, inBQ = false;
+
+  const closeAll = () => {
+    if (inUL) { out.push('</ul>'); inUL = false; }
+    if (inOL) { out.push('</ol>'); inOL = false; }
+    if (inBQ) { out.push('</blockquote>'); inBQ = false; }
+  };
+
+  for (const line of lines) {
+    if (/^#{4} /.test(line))  { closeAll(); out.push('<h4>' + line.replace(/^#{4} /, '') + '</h4>'); continue; }
+    if (/^#{3} /.test(line))  { closeAll(); out.push('<h3>' + line.replace(/^#{3} /, '') + '</h3>'); continue; }
+    if (/^#{2} /.test(line))  { closeAll(); out.push('<h2>' + line.replace(/^#{2} /, '') + '</h2>'); continue; }
+    if (/^# /.test(line))     { closeAll(); out.push('<h1>' + line.replace(/^# /, '')   + '</h1>'); continue; }
+    if (/^---+$/.test(line.trim())) { closeAll(); out.push('<hr>'); continue; }
+
+    if (/^> /.test(line)) {
+      if (!inBQ) { if (inUL) { out.push('</ul>'); inUL=false; } if (inOL) { out.push('</ol>'); inOL=false; } out.push('<blockquote>'); inBQ=true; }
+      out.push('<p>' + line.replace(/^> /, '') + '</p>');
+      continue;
+    }
+    if (inBQ && !/^> /.test(line)) { out.push('</blockquote>'); inBQ=false; }
+
+    if (/^[-*] /.test(line)) {
+      if (inOL) { out.push('</ol>'); inOL=false; }
+      if (!inUL) { out.push('<ul>'); inUL=true; }
+      out.push('<li>' + line.replace(/^[-*] /, '') + '</li>');
+      continue;
+    }
+    if (/^\d+\. /.test(line)) {
+      if (inUL) { out.push('</ul>'); inUL=false; }
+      if (!inOL) { out.push('<ol>'); inOL=true; }
+      out.push('<li>' + line.replace(/^\d+\. /, '') + '</li>');
+      continue;
+    }
+    if (inUL) { out.push('</ul>'); inUL=false; }
+    if (inOL) { out.push('</ol>'); inOL=false; }
+
+    if (line.trim() === '') { out.push(''); } else { out.push('<p>' + line + '</p>'); }
+  }
+  if (inUL) out.push('</ul>');
+  if (inOL) out.push('</ol>');
+  if (inBQ) out.push('</blockquote>');
+  return out.join('\n');
+}
+
+// ── Fetch with timeout ────────────────────────────────────────────────────────
+
+async function apiFetch(path) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const r = await fetch(API + path, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    clearTimeout(t);
+    return null;
+  }
+}
+
+// ── Connection status ─────────────────────────────────────────────────────────
+
+async function checkStatus() {
+  const data = await apiFetch('/health');
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  if (data && data.status === 'ok') {
+    _online = true;
+    dot.className = 'dot green';
+    txt.textContent = 'API Live · localhost:8000' + (data.version ? ' · v' + data.version : '');
+  } else {
+    _online = false;
+    dot.className = 'dot amber';
+    txt.innerHTML = 'API Offline &nbsp;<button class="start-btn" onclick="openOverlay()">Start API →</button>';
+  }
+  return _online;
+}
+
+function openOverlay()  { document.getElementById('start-overlay').style.display = 'flex'; }
+function closeOverlay() { document.getElementById('start-overlay').style.display = 'none'; }
+document.getElementById('start-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeOverlay(); });
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const nav = document.querySelector('[data-panel="' + id + '"]');
+  if (nav) nav.classList.add('active');
+  if (id === 'panel-brief')   loadLatestBrief();
+  if (id === 'panel-archive') loadBriefIndex();
+}
+
+// ── Daily Brief panel ─────────────────────────────────────────────────────────
+// API returns: { brief: "<markdown string>", run_id: "...", generated_at: "..." }
+
+async function loadLatestBrief() {
+  const el = document.getElementById('brief-content');
+  el.innerHTML = '<div class="loading">Loading latest brief…</div>';
+  const data = await apiFetch('/brief/latest');
+  if (data && data.brief) {
+    el.innerHTML = renderBriefMarkdown(data.brief, { run_id: data.run_id, generated_at: data.generated_at });
+    return;
+  }
+  el.innerHTML = `
+    <div class="state-box">
+      <p>${data === null
+        ? 'The SPEC-1 API is offline. Start it to view your brief live, or read it directly from disk:'
+        : 'No brief has been generated yet. Run a cycle to produce the first brief.'
+      }</p>
+      <pre>cat ~/spec-1/briefs/spec1_brief_latest.md</pre>
+      <button class="copy-btn" onclick="copyText(this, 'cat ~/spec-1/briefs/spec1_brief_latest.md')">Copy</button>
+    </div>`;
+}
+
+function renderBriefMarkdown(mdText, meta) {
+  const runId   = meta && meta.run_id      ? meta.run_id      : null;
+  const genAt   = meta && meta.generated_at ? new Date(meta.generated_at).toUTCString() : null;
+  const tags = [
+    runId  ? `<span class="tag run">${esc(runId)}</span>`         : '',
+    genAt  ? `<span class="tag run">Generated: ${esc(genAt)}</span>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="brief-wrap">
+      ${tags ? `<div class="brief-id-row">${tags}</div>` : ''}
+      <div class="md">${renderMd(mdText)}</div>
+    </div>`;
+}
+
+// ── Archive panel ─────────────────────────────────────────────────────────────
+// API returns: [ { run_id, date, filepath, word_count, timestamp }, … ] (newest first)
+
+async function loadBriefIndex() {
+  const el = document.getElementById('archive-content');
+  el.innerHTML = '<div class="loading">Loading archive…</div>';
+  const data = await apiFetch('/brief/index');
+
+  if (data === null) {
+    el.innerHTML = `
+      <div class="state-box">
+        <p>The SPEC-1 API is offline. Start it to browse the archive, or list briefs directly:</p>
+        <pre>ls ~/spec-1/briefs/spec1_brief_*.md</pre>
+        <button class="copy-btn" onclick="copyText(this, 'ls ~/spec-1/briefs/spec1_brief_*.md')">Copy</button>
+        <p style="margin-top:16px;">To start the API:</p>
+        <pre>cd ~/spec-1 &amp;&amp; export PYTHONPATH="src" &amp;&amp; python -m spec1_engine.main</pre>
+        <button class="copy-btn" onclick="copyText(this, 'cd ~/spec-1 && export PYTHONPATH=&quot;src&quot; && python -m spec1_engine.main')">Copy</button>
+      </div>`;
+    return;
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    el.innerHTML = `
+      <div class="state-box">
+        <p>No briefs found yet. Run a cycle to generate the first brief:</p>
+        <pre>cd ~/spec-1 &amp;&amp; export PYTHONPATH="src" &amp;&amp; \
+ANTHROPIC_API_KEY=$(cat .env | grep ANTHROPIC_API_KEY | cut -d= -f2 | tr -d '\\r') \
+python -m spec1_engine.app.cycle</pre>
+        <button class="copy-btn" onclick="copyText(this, 'cd ~/spec-1 && export PYTHONPATH=&quot;src&quot; && ANTHROPIC_API_KEY=$(cat .env | grep ANTHROPIC_API_KEY | cut -d= -f2) python -m spec1_engine.app.cycle')">Copy</button>
+      </div>`;
+    return;
+  }
+
+  const cards = data.map(item => {
+    const wc  = item.word_count || 0;
+    const rid = String(item.run_id || '').slice(0, 24);
+    return `
+      <div class="brief-card" onclick="loadBriefDetail('${esc(item.date)}')">
+        <div class="card-date">${esc(item.date || '—')}</div>
+        <div class="card-meta">
+          <span>${wc} words</span>
+          <span style="opacity:.6">${esc(rid)}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="archive-bar">
+      <span></span>
+      <span class="archive-count">${data.length} brief${data.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="brief-cards">${cards}</div>`;
+}
+
+// API returns: { brief: "<markdown string>", date: "YYYY-MM-DD" }
+async function loadBriefDetail(date) {
+  const el = document.getElementById('archive-content');
+  el.innerHTML = '<div class="loading">Loading brief for ' + esc(date) + '…</div>';
+  const data = await apiFetch('/brief/' + encodeURIComponent(date));
+
+  const backBtn = '<button class="back-btn" onclick="loadBriefIndex()">← Back to Archive</button>';
+
+  if (!data || !data.brief) {
+    el.innerHTML = backBtn + `
+      <div class="state-box">
+        <p>${data === null ? 'API offline — cannot load brief.' : 'No brief found for ' + esc(date) + '.'}</p>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = backBtn + renderBriefMarkdown(data.brief, { generated_at: null, run_id: null });
+}
+
+// ── Copy helper ───────────────────────────────────────────────────────────────
+
+function copyText(btn, text) {
+  const decoded = text
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+  const orig = btn.textContent;
+  (navigator.clipboard
+    ? navigator.clipboard.writeText(decoded)
+    : Promise.resolve(fallbackCopy(decoded))
+  ).then(() => {
+    btn.textContent = 'Copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+function fallbackCopy(text) {
+  const ta = Object.assign(document.createElement('textarea'), {
+    value: text, style: 'position:fixed;opacity:0'
+  });
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+(async function init() {
+  await checkStatus();
+  loadLatestBrief();
+  setInterval(checkStatus, 30000);
+})();
+</script>
+</body>
+</html>
