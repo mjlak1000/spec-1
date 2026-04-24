@@ -35,3 +35,4 @@ htmlcov/
 briefs/
 workspace/
 *.jsonl
+.env

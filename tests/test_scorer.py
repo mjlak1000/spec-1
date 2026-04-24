@@ -49,7 +49,7 @@ def test_narrative_cluster_fires_at_three_markets(base_signal, store_path):
     sig = {**base_signal, "narrative_markets": ["mkt1", "mkt2", "mkt3"]}
     result = score_psyop(sig, store_path=store_path)
     assert "NARRATIVE_CLUSTER" in result["patterns_fired"]
-    assert result["score"] == NARRATIVE_CLUSTER
+    assert result["score"] == 2
 
 
 def test_narrative_cluster_does_not_fire_at_two_markets(base_signal, store_path):
@@ -63,7 +63,7 @@ def test_fara_active_fires_on_non_empty_list(base_signal, store_path):
     sig = {**base_signal, "fara_matches": ["FARA-Registrant-Corp"]}
     result = score_psyop(sig, store_path=store_path)
     assert "FARA_ACTIVE" in result["patterns_fired"]
-    assert result["score"] == FARA_ACTIVE
+    assert result["score"] == 2
 
 
 def test_fara_active_fires_on_bool_true(base_signal, store_path):
@@ -91,7 +91,7 @@ def test_model_legislation_fires_on_non_empty_list(base_signal, store_path):
     sig = {**base_signal, "legislation_matches": ["HB-101", "SB-202"]}
     result = score_psyop(sig, store_path=store_path)
     assert "MODEL_LEGISLATION" in result["patterns_fired"]
-    assert result["score"] == MODEL_LEGISLATION
+    assert result["score"] == 3
 
 
 def test_model_legislation_fires_on_bool_true(base_signal, store_path):
@@ -112,7 +112,7 @@ def test_consensus_spike_fires_on_positive_velocity(base_signal, store_path):
     sig = {**base_signal, "consensus_velocity": 0.75}
     result = score_psyop(sig, store_path=store_path)
     assert "CONSENSUS_SPIKE" in result["patterns_fired"]
-    assert result["score"] == CONSENSUS_SPIKE
+    assert result["score"] == 1
 
 
 def test_consensus_spike_does_not_fire_at_zero(base_signal, store_path):
@@ -133,7 +133,7 @@ def test_no_organic_origin_fires_when_not_traceable(base_signal, store_path):
     sig = {**base_signal, "origin_traceable": False}
     result = score_psyop(sig, store_path=store_path)
     assert "NO_ORGANIC_ORIGIN" in result["patterns_fired"]
-    assert result["score"] == NO_ORGANIC_ORIGIN
+    assert result["score"] == 2
 
 
 def test_no_organic_origin_fires_on_none(base_signal, store_path):
@@ -151,11 +151,11 @@ def test_no_organic_origin_does_not_fire_when_traceable(base_signal, store_path)
 
 # ─── Threshold boundary tests ─────────────────────────────────────────────────
 
-def test_score_zero_is_noise(base_signal, store_path):
-    """A signal firing no patterns scores 0 and classifies as NOISE."""
+def test_score_zero_is_clean(base_signal, store_path):
+    """A signal firing no patterns scores 0 and classifies as CLEAN."""
     result = score_psyop(base_signal, store_path=store_path)
     assert result["score"] == 0
-    assert result["classification"] == "NOISE"
+    assert result["classification"] == "CLEAN"
 
 
 def test_score_4_is_noise(store_path):
@@ -259,7 +259,7 @@ def test_multiple_patterns_accumulate_score(store_path):
         "origin_traceable": True,
     }
     result = score_psyop(sig, store_path=store_path)
-    assert result["score"] == NARRATIVE_CLUSTER + FARA_ACTIVE + CONSENSUS_SPIKE
+    assert result["score"] == 2 + 2 + 1
     assert set(result["patterns_fired"]) == {
         "NARRATIVE_CLUSTER", "FARA_ACTIVE", "CONSENSUS_SPIKE"
     }

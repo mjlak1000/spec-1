@@ -106,3 +106,22 @@ class PaginatedResponse(BaseModel):
     limit: int
     offset: int
     items: list[Any]
+
+
+class SignalIngestRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    source: str = Field("unknown")
+    url: str = Field("")
+    author: str = Field("")
+    published_at: str = Field("")
+    signal_id: Optional[str] = Field(None)
+    keywords: list[str] = Field(default_factory=list)
+    entities: list[str] = Field(default_factory=list)
+    metadata: dict = Field(default_factory=dict)
+
+
+class IngestResponse(BaseModel):
+    signal_id: str
+    route: str           # "BYPASS" | "LLM_GATE"
+    complexity_score: float
+    status: str = "queued"

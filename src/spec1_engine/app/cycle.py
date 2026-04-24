@@ -326,8 +326,23 @@ def run_cycle(
         if verbose:
             print(f"  Brief written: {brief_path} ({brief_word_count} words)")
     except Exception as exc:
-        logger.error("Briefing step failed: %s", exc)
+        logger.error("Briefing step failed: %s — trying rule-based fallback", exc)
         stats["errors"].append(f"briefing:{exc}")
+        try:
+            from spec1_engine.cls_world_brief.producer import produce_brief
+            from spec1_engine.cls_world_brief.formatter import to_markdown
+            if verbose:
+                print(f"\n[Briefing] Claude API unavailable — using rule-based brief fallback...")
+            fallback_brief = produce_brief(stored_records)
+            brief_md = to_markdown(fallback_brief)
+            stats["brief_word_count"] = len(brief_md.split())
+            stats["brief_fallback"] = True
+            if verbose:
+                print(f"  Rule-based brief produced ({stats['brief_word_count']} words, "
+                      f"confidence={fallback_brief.confidence:.2f})")
+        except Exception as fallback_exc:
+            logger.error("Rule-based brief fallback failed: %s", fallback_exc)
+            stats["errors"].append(f"briefing_fallback:{fallback_exc}")
 
     # ── Case workspace: Match signals to open cases and run research ──────────
     try:
