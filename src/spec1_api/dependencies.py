@@ -15,6 +15,7 @@ from cls_leads.store import LeadStore
 from cls_psyop.store import PsyopStore
 from cls_quant.store import QuantStore
 from cls_world_brief.store import BriefStore
+from cls_verdicts.store import VerdictStore
 from cls_db.database import Database
 from cls_db.migrate import ensure_schema
 
@@ -61,6 +62,12 @@ def get_brief_store() -> BriefStore:
 
 
 @lru_cache(maxsize=1)
+def get_verdict_store() -> VerdictStore:
+    path = _env_path("SPEC1_VERDICTS_PATH", "verdicts.jsonl")
+    return VerdictStore(path)
+
+
+@lru_cache(maxsize=1)
 def get_database() -> Database:
     path = _env_path("SPEC1_DB_PATH", "spec1.db")
     db = Database(path)
@@ -75,4 +82,5 @@ LeadStoreDep = Annotated[LeadStore, Depends(get_lead_store)]
 PsyopStoreDep = Annotated[PsyopStore, Depends(get_psyop_store)]
 QuantStoreDep = Annotated[QuantStore, Depends(get_quant_store)]
 BriefStoreDep = Annotated[BriefStore, Depends(get_brief_store)]
+VerdictStoreDep = Annotated[VerdictStore, Depends(get_verdict_store)]
 DatabaseDep = Annotated[Database, Depends(get_database)]
