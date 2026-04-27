@@ -30,6 +30,9 @@ from mcp_server import (
     tool_get_fara,
     tool_analyse_psyop,
     tool_get_stats,
+    tool_file_verdict,
+    tool_get_verdicts,
+    tool_get_calibration,
     TOOLS,
 )
 
@@ -71,6 +74,9 @@ class TestToolsList:
         assert "get_fara" in tool_names
         assert "analyse_psyop" in tool_names
         assert "get_stats" in tool_names
+        assert "file_verdict" in tool_names
+        assert "get_verdicts" in tool_names
+        assert "get_calibration" in tool_names
 
     def test_each_tool_has_description(self):
         resp = handle_tools_list("id-1", {})
@@ -259,13 +265,118 @@ class TestGetStats:
             "SPEC1_PSYOP_PATH": str(tmp_path / "psyop.jsonl"),
             "SPEC1_QUANT_PATH": str(tmp_path / "quant.jsonl"),
             "SPEC1_BRIEFS_PATH": str(tmp_path / "briefs.jsonl"),
+            "SPEC1_VERDICTS_PATH": str(tmp_path / "verdicts.jsonl"),
         }
         with patch.dict(os.environ, env_overrides):
             result = tool_get_stats({})
 
         assert "intelligence" in result
         assert "osint" in result
+        assert "verdicts" in result
         assert "checked_at" in result
+
+
+class TestFileVerdict:
+    def test_writes_verdict_to_jsonl(self, tmp_path):
+        path = tmp_path / "verdicts.jsonl"
+        with patch.dict(os.environ, {"SPEC1_VERDICTS_PATH": str(path)}):
+            result = tool_file_verdict({
+                "record_id": "rec-1",
+                "verdict": "correct",
+                "reviewer": "alice",
+                "notes": "matches independent reporting",
+            })
+
+        assert result["record_id"] == "rec-1"
+        assert result["verdict"] == "correct"
+        assert result["reviewer"] == "alice"
+        assert path.exists()
+        line = path.read_text().strip()
+        assert json.loads(line)["record_id"] == "rec-1"
+
+    def test_rejects_unknown_verdict(self, tmp_path):
+        path = tmp_path / "verdicts.jsonl"
+        with patch.dict(os.environ, {"SPEC1_VERDICTS_PATH": str(path)}):
+            result = tool_file_verdict({"record_id": "rec-1", "verdict": "maybe"})
+        assert "error" in result
+        assert not path.exists()
+
+    def test_requires_record_id(self, tmp_path):
+        path = tmp_path / "verdicts.jsonl"
+        with patch.dict(os.environ, {"SPEC1_VERDICTS_PATH": str(path)}):
+            result = tool_file_verdict({"verdict": "correct"})
+        assert "error" in result
+
+
+class TestGetVerdicts:
+    def _seed(self, path: Path) -> None:
+        path.write_text(
+            json.dumps({"verdict_id": "v1", "record_id": "r1", "verdict": "correct"}) + "\n" +
+            json.dumps({"verdict_id": "v2", "record_id": "r1", "verdict": "partial"}) + "\n" +
+            json.dumps({"verdict_id": "v3", "record_id": "r2", "verdict": "incorrect"}) + "\n"
+        )
+
+    def test_returns_all_when_no_filter(self, tmp_path):
+        path = tmp_path / "verdicts.jsonl"
+        self._seed(path)
+        with patch.dict(os.environ, {"SPEC1_VERDICTS_PATH": str(path)}):
+            result = tool_get_verdicts({"limit": 10})
+        assert len(result) == 3
+
+    def test_filters_by_record_id(self, tmp_path):
+        path = tmp_path / "verdicts.jsonl"
+        self._seed(path)
+        with patch.dict(os.environ, {"SPEC1_VERDICTS_PATH": str(path)}):
+            result = tool_get_verdicts({"record_id": "r1"})
+        assert len(result) == 2
+        assert all(v["record_id"] == "r1" for v in result)
+
+    def test_returns_empty_when_store_missing(self, tmp_path):
+        path = tmp_path / "missing.jsonl"
+        with patch.dict(os.environ, {"SPEC1_VERDICTS_PATH": str(path)}):
+            result = tool_get_verdicts({})
+        assert result == []
+
+
+class TestGetCalibration:
+    def test_produces_report_from_intel_and_verdicts(self, tmp_path):
+        intel_path = tmp_path / "intel.jsonl"
+        verdicts_path = tmp_path / "verdicts.jsonl"
+        intel_path.write_text(
+            json.dumps({
+                "record_id": "r1", "classification": "CORROBORATED",
+                "confidence": 0.9, "source_weight": 0.8, "analyst_weight": 0.7,
+            }) + "\n"
+        )
+        verdicts_path.write_text(
+            json.dumps({"verdict_id": "v1", "record_id": "r1", "verdict": "correct"}) + "\n"
+        )
+        env = {
+            "SPEC1_STORE_PATH": str(intel_path),
+            "SPEC1_VERDICTS_PATH": str(verdicts_path),
+        }
+        with patch.dict(os.environ, env):
+            report = tool_get_calibration({})
+
+        assert report["total_records"] == 1
+        assert report["total_verdicts"] == 1
+        assert report["matched_verdicts"] == 1
+        assert "CORROBORATED" in report["by_classification"]
+
+    def test_include_proposals_adds_proposal_block(self, tmp_path):
+        intel_path = tmp_path / "intel.jsonl"
+        verdicts_path = tmp_path / "verdicts.jsonl"
+        intel_path.write_text("")
+        verdicts_path.write_text("")
+        env = {
+            "SPEC1_STORE_PATH": str(intel_path),
+            "SPEC1_VERDICTS_PATH": str(verdicts_path),
+        }
+        with patch.dict(os.environ, env):
+            report = tool_get_calibration({"include_proposals": True})
+
+        assert "proposal" in report
+        assert "adjustments" in report["proposal"]
 
 
 class TestHandleRequest:
