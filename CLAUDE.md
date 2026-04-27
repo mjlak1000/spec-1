@@ -116,8 +116,8 @@ spec-1/
 │   └── test_mcp_server.py       # MCP tool surface
 │
 ├── briefs/                       # Generated daily briefs + per-day analyst prompts
+├── scripts/                      # Standalone scripts (e.g. anthropic_smoke.py)
 ├── mcp_server.py                 # MCP server exposing SPEC-1 tools to Claude
-├── verifier.py                   # Top-level verifier shim
 ├── pyproject.toml
 ├── requirements.txt
 ├── .env.example
@@ -227,7 +227,7 @@ Calibration drift across these gates is surfaced by `cls_calibration` — never 
 ## MCP Tools Exposed (mcp_server.py)
 
 `run_cycle`, `get_signals`, `get_intel`, `get_leads`, `get_brief`, `get_psyop`, `get_fara`,
-`analyse_psyop`, `get_stats`
+`analyse_psyop`, `get_stats`, `file_verdict`, `get_verdicts`, `get_calibration`
 
 ## Environment Variables
 
@@ -281,7 +281,8 @@ All test functions must be fully implemented — no `pass` stubs, no `pytest.ski
 4. `cls_db.dual_write` wraps every store write so JSONL and SQLite stay in sync.
 5. API routers read from JSONL stores (via repository) — not direct DB queries.
 6. `mcp_server.py` exposes: `run_cycle`, `get_signals`, `get_intel`, `get_leads`, `get_brief`,
-   `get_psyop`, `get_fara`, `analyse_psyop`, `get_stats`.
+   `get_psyop`, `get_fara`, `analyse_psyop`, `get_stats`, `file_verdict`, `get_verdicts`,
+   `get_calibration`.
 7. Tests use `tmp_path` fixtures and mock external network calls.
 8. `pyproject.toml` lists all packages under `[tool.setuptools.packages.find]`.
 9. Import canonical strings from `spec1_labels` — never hard-code label values.
