@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
+import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -108,3 +110,34 @@ def write_brief(
 
     logger.info("Brief written to %s (%d words, %d prompts)", dated_path, word_count, len(extracted_prompts))
     return str(dated_path)
+
+
+def write_brief_pdf(brief_md_path: Path, out_pdf_path: Path) -> Path:
+    """Render a markdown brief to PDF via the out-of-process renderer.
+
+    Subprocesses to `python -m spec1_engine.tools.pdf_render` so weasyprint and
+    its native deps stay out of the engine/API process. Raises RuntimeError on
+    any subprocess failure (missing input, render error, missing weasyprint).
+    """
+    brief_md_path = Path(brief_md_path)
+    out_pdf_path = Path(out_pdf_path)
+    out_pdf_path.parent.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "spec1_engine.tools.pdf_render",
+            "--brief-md",
+            str(brief_md_path),
+            "--out",
+            str(out_pdf_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"PDF render failed (exit {result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return out_pdf_path
