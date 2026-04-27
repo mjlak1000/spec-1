@@ -34,5 +34,4 @@ htmlcov/
 .DS_Store
 briefs/
 workspace/
-*.jsonl
-.env
+.mcp.json
