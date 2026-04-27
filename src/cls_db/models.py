@@ -147,6 +147,22 @@ CREATE TABLE IF NOT EXISTS quant_signals (
 )
 """
 
+VERDICTS_DDL = """
+CREATE TABLE IF NOT EXISTS verdicts (
+    verdict_id TEXT PRIMARY KEY,
+    record_id TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    reviewer TEXT DEFAULT 'anonymous',
+    reviewed_at TEXT,
+    notes TEXT DEFAULT '',
+    written_at TEXT
+)
+"""
+
+VERDICTS_RECORD_ID_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_verdicts_record_id ON verdicts(record_id)"
+)
+
 # Ordered list of all DDL statements (for migration runner)
 ALL_DDL: list[tuple[str, str]] = [
     ("signals", SIGNALS_DDL),
@@ -158,4 +174,10 @@ ALL_DDL: list[tuple[str, str]] = [
     ("briefs", BRIEFS_DDL),
     ("psyop_scores", PSYOP_SCORES_DDL),
     ("quant_signals", QUANT_SIGNALS_DDL),
+    ("verdicts", VERDICTS_DDL),
+]
+
+# Auxiliary DDL — indexes and other idempotent statements run after table creation.
+AUX_DDL: list[str] = [
+    VERDICTS_RECORD_ID_INDEX_DDL,
 ]
