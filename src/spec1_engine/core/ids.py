@@ -40,8 +40,11 @@ def outcome_id(investigation_id: str) -> str:
     return f"out_{investigation_id[4:20]}_{_short_uuid()}"
 
 
-def intelligence_id(outcome_id: str) -> str:
-    return f"intel_{outcome_id[4:20]}_{_short_uuid()}"
+def intelligence_id(signal_id: str, classification: str) -> str:
+    """Deterministic intelligence ID — same signal + classification always produces same ID.
+    Enables dedup across reruns in the JSONL store and any downstream sinks."""
+    content = f"{signal_id}:{classification}"
+    return f"intel_{hashlib.sha256(content.encode()).hexdigest()[:16]}"
 
 
 def analyst_id(name: str, affiliation: str) -> str:

@@ -67,9 +67,10 @@ def _make_outcome(signal: Signal, opportunity: Opportunity, classification="Inve
 
 def _make_record(signal: Signal, outcome: Outcome, classification="Investigate") -> IntelligenceRecord:
     return IntelligenceRecord(
-        record_id=ids.intelligence_id(outcome.outcome_id),
+        record_id=ids.intelligence_id(signal.signal_id, classification),
         outcome_id=outcome.outcome_id,
         signal_id=signal.signal_id,
+        signal_text=signal.text,
         pattern="Test pattern",
         classification=classification,
         confidence=0.75,
@@ -129,8 +130,8 @@ class TestIntelligenceStore:
 
     def test_by_classification(self):
         store = IntelligenceStore()
-        for cls in ("Investigate", "Monitor", "Investigate"):
-            sig = _make_signal(source=f"src_{cls}_{id(cls)}")
+        for i, cls in enumerate(("Investigate", "Monitor", "Investigate")):
+            sig = _make_signal(source=f"src_cls_test_{i}")
             opp = _make_opportunity(sig)
             out = _make_outcome(sig, opp, classification=cls)
             rec = _make_record(sig, out, classification=cls)
@@ -170,9 +171,10 @@ class TestIntelligenceStore:
             opp = _make_opportunity(sig)
             out = _make_outcome(sig, opp, classification=cls)
             rec = IntelligenceRecord(
-                record_id=ids.intelligence_id(out.outcome_id),
+                record_id=ids.intelligence_id(sig.signal_id, cls),
                 outcome_id=out.outcome_id,
                 signal_id=sig.signal_id,
+                signal_text=sig.text,
                 pattern="pattern",
                 classification=cls,
                 confidence=conf,
@@ -188,8 +190,8 @@ class TestIntelligenceStore:
 
     def test_summary(self):
         store = IntelligenceStore()
-        for cls in ("Investigate", "Investigate", "Monitor"):
-            sig = _make_signal(source=f"s_{cls}_{id(cls)}")
+        for i, cls in enumerate(("Investigate", "Investigate", "Monitor")):
+            sig = _make_signal(source=f"s_summary_test_{i}")
             opp = _make_opportunity(sig)
             out = _make_outcome(sig, opp, classification=cls)
             rec = _make_record(sig, out, classification=cls)

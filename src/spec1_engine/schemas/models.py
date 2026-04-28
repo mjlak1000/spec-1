@@ -140,7 +140,8 @@ class IntelligenceRecord:
     record_id:        str
     outcome_id:       str
     signal_id:        str
-    pattern:          str                   # what pattern was extracted
+    signal_text:      str                   # original signal text; use this, never pattern, for scoring
+    pattern:          str                   # formatted summary extracted from the outcome
     classification:   str                   # same as Outcome classification
     confidence:       float
     source_weight:    float                 # how much to trust this source class next cycle
