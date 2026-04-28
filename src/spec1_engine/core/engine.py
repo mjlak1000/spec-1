@@ -10,6 +10,8 @@ and carries the run_id through every step for full traceability.
 
 from __future__ import annotations
 
+import os
+import traceback
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -34,7 +36,7 @@ class CycleResult:
     investigation:    Optional[Investigation]
     outcome:          Optional[Outcome]
     intelligence:     Optional[IntelligenceRecord]
-    status:           str           # ok | filtered | failed
+    status:           str           # ok | filtered | failed | halted
     notes:            str = ""
 
 
@@ -69,8 +71,28 @@ class OSINTEngine:
     def run_id(self) -> str:
         return self._run_id
 
+    def _kill_switch_active(self) -> bool:
+        return os.path.exists(".cls_kill")
+
     def run_cycle(self, signal: Signal) -> CycleResult:
         """Run one complete cycle for a single signal."""
+        if self._kill_switch_active():
+            logging_utils.log_event(
+                logger, "kill_switch_halt",
+                run_id=self._run_id,
+                signal_id=signal.signal_id,
+            )
+            return CycleResult(
+                run_id=self._run_id,
+                signal=signal,
+                opportunity=None,
+                investigation=None,
+                outcome=None,
+                intelligence=None,
+                status="halted",
+                notes="Kill switch active (.cls_kill present). Halting.",
+            )
+
         signal.run_id = self._run_id
         signal.environment = self.environment
 
@@ -162,6 +184,12 @@ class OSINTEngine:
         """Run cycles for a list of signals. Continues on individual failures."""
         results = []
         for signal in signals:
+            if self._kill_switch_active():
+                logging_utils.log_event(
+                    logger, "kill_switch_halt",
+                    run_id=self._run_id,
+                )
+                break
             try:
                 results.append(self.run_cycle(signal))
             except Exception as exc:
@@ -170,6 +198,17 @@ class OSINTEngine:
                     run_id=self._run_id,
                     signal_id=signal.signal_id,
                     error=str(exc),
+                    traceback=traceback.format_exc(),
                     level="ERROR",
                 )
+                results.append(CycleResult(
+                    run_id=self._run_id,
+                    signal=signal,
+                    opportunity=None,
+                    investigation=None,
+                    outcome=None,
+                    intelligence=None,
+                    status="failed",
+                    notes=f"Cycle failed: {exc}",
+                ))
         return results
