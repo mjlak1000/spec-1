@@ -7,8 +7,28 @@ This is the learning arc — what the system remembers across cycles.
 
 from __future__ import annotations
 
+from typing import Dict
+
 from spec1_engine.core import ids
 from spec1_engine.schemas.models import IntelligenceRecord, Outcome, Signal
+
+
+# ANALYST_WEIGHT_MAP — last reviewed: 2026-04-28
+# Weights reflect institutional credibility + national security beat depth.
+# Review quarterly or when a listed analyst changes outlet or focus area.
+ANALYST_WEIGHT_MAP: Dict[str, float] = {
+    "Michael Kofman":    0.92,  # Carnegie Endowment; Ukraine/Russia force structure
+    "Dara Massicot":     0.91,  # Carnegie Endowment; Russian military doctrine
+    "Thomas Rid":        0.89,  # Johns Hopkins SAIS; influence ops / cyber history
+    "Julian E. Barnes":  0.90,  # New York Times; intelligence / national security
+    "Shane Harris":      0.88,  # Washington Post; national security / intelligence
+    "Melinda Haring":    0.86,  # Atlantic Council; UkraineAlert editor
+    "Natasha Bertrand":  0.87,  # CNN; defense / intelligence
+    "Phillips O'Brien":  0.85,  # University of St Andrews; air power / Ukraine
+    "Ken Dilanian":      0.85,  # NBC News; national security / intelligence
+}
+
+_ANALYST_WEIGHT_DEFAULT = 0.50  # fallback for analysts not in the map
 
 
 class IntelligenceAnalyzer:
@@ -20,9 +40,10 @@ class IntelligenceAnalyzer:
         analyst_weight = self._compute_analyst_weight(outcome)
 
         return IntelligenceRecord(
-            record_id=ids.intelligence_id(outcome.outcome_id),
+            record_id=ids.intelligence_id(signal.signal_id, outcome.classification),
             outcome_id=outcome.outcome_id,
             signal_id=signal.signal_id,
+            signal_text=signal.text,
             pattern=pattern,
             classification=outcome.classification,
             confidence=outcome.confidence,
@@ -69,12 +90,24 @@ class IntelligenceAnalyzer:
         return round(min(1.0, max(0.0, base + delta + outcome.confidence * 0.1)), 4)
 
     def _compute_analyst_weight(self, outcome: Outcome) -> float:
-        """How much should we weight the citing analysts?"""
+        """
+        Weight for citing analysts, drawn from ANALYST_WEIGHT_MAP.
+        Outcome classification adjusts the base weight up or down.
+        Unknown analysts receive the default weight.
+        """
         if not outcome.analyst_citations:
-            return 0.5
-        base = 0.5
+            return _ANALYST_WEIGHT_DEFAULT
+
+        # Average the map weights for all cited analysts
+        weights = [
+            ANALYST_WEIGHT_MAP.get(name, _ANALYST_WEIGHT_DEFAULT)
+            for name in outcome.analyst_citations
+        ]
+        base = sum(weights) / len(weights)
+
+        # Outcome-driven adjustment on top of per-analyst base
         if outcome.classification in ("Corroborated", "Escalate"):
-            return round(min(1.0, base + 0.15), 4)
+            return round(min(1.0, base + 0.05), 4)
         if outcome.classification == "Conflicted":
-            return round(max(0.0, base - 0.15), 4)
-        return base
+            return round(max(0.0, base - 0.05), 4)
+        return round(base, 4)

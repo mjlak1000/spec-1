@@ -7,9 +7,12 @@ Generates hypothesis, follow-up queries, sources to check, and analyst leads.
 
 from __future__ import annotations
 
+from typing import List
+
 from spec1_engine.core import ids
 from spec1_engine.schemas.models import Investigation, Opportunity, Signal
 from spec1_engine.analysts.registry import ANALYST_REGISTRY
+from spec1_engine.signal.harvester import KNOWN_SOURCES
 
 
 class InvestigationGenerator:
@@ -45,7 +48,7 @@ class InvestigationGenerator:
             f"requiring corroboration. Initial claim: {signal.text[:200]}..."
         )
 
-    def _build_queries(self, signal: Signal) -> list:
+    def _build_queries(self, signal: Signal) -> List[str]:
         """Generate follow-up queries for verification."""
         base = signal.text[:80].strip()
         return [
@@ -55,17 +58,16 @@ class InvestigationGenerator:
             f"{base} — primary source",
         ]
 
-    def _select_sources(self, signal: Signal) -> list:
+    def _select_sources(self, signal: Signal) -> List[str]:
         """Select which sources to check for corroboration."""
         domains = signal.metadata.get("domains", [])
         candidates = []
-        for source, meta in ANALYST_REGISTRY.items():
-            if any(d in meta.get("domains", []) for d in domains):
+        for source, meta in KNOWN_SOURCES.items():
+            if any(d in meta.get("domain", []) for d in domains):
                 candidates.append(source)
-        # Always include the originating source's peer publications
         return candidates[:5] if candidates else ["rand", "csis", "atlantic_council"]
 
-    def _find_analyst_leads(self, signal: Signal) -> list:
+    def _find_analyst_leads(self, signal: Signal) -> List[str]:
         """Identify analysts who cover this signal's domain."""
         domains = signal.metadata.get("domains", [])
         leads = []

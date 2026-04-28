@@ -19,15 +19,23 @@ from __future__ import annotations
 
 from typing import Optional
 
-from spec1_engine.core import ids
+from spec1_engine.core import ids, logging_utils
 from spec1_engine.schemas.models import Opportunity, Signal
+
+logger = logging_utils.get_logger(__name__)
 
 # ── Gate thresholds ───────────────────────────────────────────────────────────
 
-CREDIBILITY_FLOOR  = 0.0   # Gate 1: sources in KNOWN_SOURCES pass; unknown = reject
+# Gate 1: unknown sources receive credibility 0.0 and are rejected below the threshold
+CREDIBILITY_REJECT_THRESHOLD = 0.50
 VOLUME_FLOOR       = 0.30  # Gate 2: engagement proxy minimum
 VELOCITY_FLOOR     = 0.40  # Gate 3: velocity minimum (below = trailing/stale)
 NOVELTY_PENALTY    = 0.15  # Gate 4: deduct from score if seen recently
+
+# ── Scoring weights (must sum to 1.0) ────────────────────────────────────────
+SCORE_WEIGHT_VELOCITY    = 0.40
+SCORE_WEIGHT_ENGAGEMENT  = 0.30
+SCORE_WEIGHT_CREDIBILITY = 0.30
 
 # ── Source credibility map ────────────────────────────────────────────────────
 # 1.0 = fully trusted | 0.5 = use with caution | 0.0 = reject
@@ -53,8 +61,6 @@ SOURCE_CREDIBILITY = {
     "rss_feed":           0.65,
 }
 
-CREDIBILITY_REJECT_THRESHOLD = 0.50
-
 
 class SignalScorer:
     """
@@ -69,16 +75,37 @@ class SignalScorer:
         cred = SOURCE_CREDIBILITY.get(signal.source, 0.0)
         gate_results["credibility"] = cred >= CREDIBILITY_REJECT_THRESHOLD
         if not gate_results["credibility"]:
+            logging_utils.log_event(
+                logger, "gate_failed",
+                signal_id=signal.signal_id,
+                gate="credibility",
+                value=cred,
+                threshold=CREDIBILITY_REJECT_THRESHOLD,
+            )
             return None
 
         # ── Gate 2: Volume floor ──────────────────────────────────────────────
         gate_results["volume"] = signal.engagement >= VOLUME_FLOOR
         if not gate_results["volume"]:
+            logging_utils.log_event(
+                logger, "gate_failed",
+                signal_id=signal.signal_id,
+                gate="volume",
+                value=signal.engagement,
+                threshold=VOLUME_FLOOR,
+            )
             return None
 
         # ── Gate 3: Velocity floor ────────────────────────────────────────────
         gate_results["velocity"] = signal.velocity >= VELOCITY_FLOOR
         if not gate_results["velocity"]:
+            logging_utils.log_event(
+                logger, "gate_failed",
+                signal_id=signal.signal_id,
+                gate="velocity",
+                value=signal.velocity,
+                threshold=VELOCITY_FLOOR,
+            )
             return None
 
         # ── Gate 4: Novelty (soft gate — penalizes but doesn't reject) ────────
@@ -88,11 +115,10 @@ class SignalScorer:
         novelty_penalty = 0.0 if novelty_ok else NOVELTY_PENALTY
 
         # ── Score calculation ─────────────────────────────────────────────────
-        # Weighted: velocity 40%, engagement 30%, credibility 30%
         raw_score = (
-            0.40 * signal.velocity
-            + 0.30 * signal.engagement
-            + 0.30 * cred
+            SCORE_WEIGHT_VELOCITY    * signal.velocity
+            + SCORE_WEIGHT_ENGAGEMENT  * signal.engagement
+            + SCORE_WEIGHT_CREDIBILITY * cred
             - novelty_penalty
         )
         score = round(min(1.0, max(0.0, raw_score)), 4)

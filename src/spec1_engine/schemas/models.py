@@ -49,6 +49,9 @@ class Signal:
     )
 
 
+_PRIORITY_VALUES = ("ELEVATED", "STANDARD", "MONITOR")
+
+
 @dataclass
 class Opportunity:
     """
@@ -67,6 +70,12 @@ class Opportunity:
     created_at:      str                    = field(
         default_factory=lambda: datetime.utcnow().isoformat()
     )
+
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.score <= 1.0):
+            raise ValueError(f"Opportunity.score must be 0.0–1.0, got {self.score}")
+        if self.priority not in _PRIORITY_VALUES:
+            raise ValueError(f"Opportunity.priority must be one of {_PRIORITY_VALUES}, got {self.priority!r}")
 
 
 @dataclass
@@ -115,6 +124,12 @@ class Outcome:
         default_factory=lambda: datetime.utcnow().isoformat()
     )
 
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.confidence <= 1.0):
+            raise ValueError(f"Outcome.confidence must be 0.0–1.0, got {self.confidence}")
+        if self.classification not in OUTCOME_CLASSES:
+            raise ValueError(f"Outcome.classification must be one of {OUTCOME_CLASSES}, got {self.classification!r}")
+
 
 @dataclass
 class IntelligenceRecord:
@@ -125,7 +140,8 @@ class IntelligenceRecord:
     record_id:        str
     outcome_id:       str
     signal_id:        str
-    pattern:          str                   # what pattern was extracted
+    signal_text:      str                   # original signal text; use this, never pattern, for scoring
+    pattern:          str                   # formatted summary extracted from the outcome
     classification:   str                   # same as Outcome classification
     confidence:       float
     source_weight:    float                 # how much to trust this source class next cycle
@@ -140,6 +156,15 @@ class IntelligenceRecord:
     run_id:           str                   = ""
     environment:      str                   = "osint"
     metadata:         Dict[str, Any]        = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name, val in (
+            ("confidence", self.confidence),
+            ("source_weight", self.source_weight),
+            ("analyst_weight", self.analyst_weight),
+        ):
+            if not (0.0 <= val <= 1.0):
+                raise ValueError(f"IntelligenceRecord.{name} must be 0.0–1.0, got {val}")
 
 
 # ── Analyst tracking ──────────────────────────────────────────────────────────
@@ -170,3 +195,7 @@ class AnalystRecord:
     updated_at:       str                   = field(
         default_factory=lambda: datetime.utcnow().isoformat()
     )
+
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.credibility_score <= 1.0):
+            raise ValueError(f"AnalystRecord.credibility_score must be 0.0–1.0, got {self.credibility_score}")
