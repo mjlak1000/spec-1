@@ -92,6 +92,18 @@ def _build_psyop_signal(
     # origin_traceable: True (RSS sources are traceable by default)
     origin_traceable = True
 
+    # signals_data: per-signal details for evidence chain construction
+    signals_data = [
+        {
+            "signal_id": sig.signal_id,
+            "source": sig.source,
+            "text": sig.text[:280] if sig.text else "",
+            "url": sig.url or "",
+            "published_at": sig.published_at.isoformat() if sig.published_at else "",
+        }
+        for sig in signals
+    ]
+
     return {
         "topic": topic,
         "entities": entities,
@@ -101,6 +113,7 @@ def _build_psyop_signal(
         "narrative_markets": narrative_markets,
         "consensus_velocity": consensus_velocity,
         "origin_traceable": origin_traceable,
+        "signals_data": signals_data,
     }
 
 
@@ -198,10 +211,12 @@ def run_cycle(
         stats["psyop_classification"] = psyop_result["classification"]
         stats["psyop_score"] = psyop_result["score"]
         stats["psyop_patterns_fired"] = psyop_result["patterns_fired"]
+        stats["psyop_evidence_chains"] = psyop_result.get("evidence_chains", [])
         if verbose:
             print(f"      Psyop score={psyop_result['score']} "
                   f"class={psyop_result['classification']} "
-                  f"patterns={psyop_result['patterns_fired']}")
+                  f"patterns={psyop_result['patterns_fired']} "
+                  f"evidence_chains={len(stats['psyop_evidence_chains'])}")
     except Exception as exc:
         logger.error("Psyop scoring failed: %s", exc)
         stats["errors"].append(f"psyop:{exc}")
@@ -311,8 +326,23 @@ def run_cycle(
         if verbose:
             print(f"  Brief written: {brief_path} ({brief_word_count} words)")
     except Exception as exc:
-        logger.error("Briefing step failed: %s", exc)
+        logger.error("Briefing step failed: %s — trying rule-based fallback", exc)
         stats["errors"].append(f"briefing:{exc}")
+        try:
+            from spec1_engine.cls_world_brief.producer import produce_brief
+            from spec1_engine.cls_world_brief.formatter import to_markdown
+            if verbose:
+                print(f"\n[Briefing] Claude API unavailable — using rule-based brief fallback...")
+            fallback_brief = produce_brief(stored_records)
+            brief_md = to_markdown(fallback_brief)
+            stats["brief_word_count"] = len(brief_md.split())
+            stats["brief_fallback"] = True
+            if verbose:
+                print(f"  Rule-based brief produced ({stats['brief_word_count']} words, "
+                      f"confidence={fallback_brief.confidence:.2f})")
+        except Exception as fallback_exc:
+            logger.error("Rule-based brief fallback failed: %s", fallback_exc)
+            stats["errors"].append(f"briefing_fallback:{fallback_exc}")
 
     # ── Case workspace: Match signals to open cases and run research ──────────
     try:

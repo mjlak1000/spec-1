@@ -40,3 +40,5 @@ data/psyop_signals.jsonl
 
 # Generated brief and prompt markdown files — never committed to main
 briefs/
+workspace/
+.mcp.json

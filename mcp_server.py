@@ -10,6 +10,9 @@ Tools exposed:
   - get_fara           Return FARA filing records
   - analyse_psyop      Score text for psyop patterns
   - get_stats          Return system statistics
+  - file_verdict       File a human verdict on an intelligence record
+  - get_verdicts       Return verdicts (optionally for a single record)
+  - get_calibration    Produce a calibration drift report from intel + verdicts
 
 This server uses a simple JSON-RPC 2.0 over stdio protocol compatible
 with the Claude MCP specification.
@@ -171,6 +174,7 @@ def tool_get_stats(args: dict) -> dict:
         "psyop": _store_path("SPEC1_PSYOP_PATH", "psyop_scores.jsonl"),
         "quant": _store_path("SPEC1_QUANT_PATH", "quant_signals.jsonl"),
         "briefs": _store_path("SPEC1_BRIEFS_PATH", "world_briefs.jsonl"),
+        "verdicts": _store_path("SPEC1_VERDICTS_PATH", "verdicts.jsonl"),
     }
     for name, path in paths.items():
         if path.exists():
@@ -180,6 +184,72 @@ def tool_get_stats(args: dict) -> dict:
             stats[name] = 0
     stats["checked_at"] = datetime.now(timezone.utc).isoformat()  # type: ignore[assignment]
     return stats
+
+
+def tool_file_verdict(args: dict) -> dict:
+    """File a human verdict on a stored intelligence record."""
+    from cls_verdicts.schemas import VALID_VERDICTS, Verdict
+    from cls_verdicts.store import VerdictStore
+
+    record_id = str(args.get("record_id", "")).strip()
+    kind = str(args.get("verdict", "")).strip().lower()
+    reviewer = str(args.get("reviewer", "anonymous")).strip() or "anonymous"
+    notes = str(args.get("notes", ""))
+
+    if not record_id:
+        return {"error": "record_id is required"}
+    if kind not in VALID_VERDICTS:
+        return {"error": f"verdict must be one of {sorted(VALID_VERDICTS)}, got {kind!r}"}
+
+    reviewed_at = datetime.now(timezone.utc)
+    verdict = Verdict(
+        verdict_id=Verdict.make_id(record_id, reviewer, reviewed_at),
+        record_id=record_id,
+        verdict=kind,  # type: ignore[arg-type]
+        reviewer=reviewer,
+        reviewed_at=reviewed_at,
+        notes=notes,
+    )
+    store = VerdictStore(_store_path("SPEC1_VERDICTS_PATH", "verdicts.jsonl"))
+    return store.save(verdict)
+
+
+def tool_get_verdicts(args: dict) -> list[dict]:
+    """Return verdicts. If record_id is given, returns every verdict for that record."""
+    from cls_verdicts.store import VerdictStore
+
+    record_id = args.get("record_id")
+    limit = int(args.get("limit", 20))
+    store = VerdictStore(_store_path("SPEC1_VERDICTS_PATH", "verdicts.jsonl"))
+
+    if record_id:
+        return store.for_record(str(record_id))
+    # Tail of the JSONL — last `limit` verdicts in insertion order.
+    return list(store.read_all())[-limit:]
+
+
+def tool_get_calibration(args: dict) -> dict:
+    """Produce a calibration drift report from the current intel + verdicts stores."""
+    from cls_calibration.aggregator import produce_report
+    from cls_calibration.proposer import propose_adjustments
+
+    include_proposals = bool(args.get("include_proposals", False))
+    sample_floor = int(args.get("sample_floor", 5))
+    delta_floor = float(args.get("delta_floor", 0.15))
+
+    intel = _read_jsonl(_store_path("SPEC1_STORE_PATH", "spec1_intelligence.jsonl"), limit=10**9)
+    verdicts = _read_jsonl(_store_path("SPEC1_VERDICTS_PATH", "verdicts.jsonl"), limit=10**9)
+
+    report = produce_report(intel, verdicts)
+    out = report.to_dict()
+    if include_proposals:
+        proposal = propose_adjustments(
+            report,
+            sample_floor=sample_floor,
+            delta_floor=delta_floor,
+        )
+        out["proposal"] = proposal.to_dict()
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +347,53 @@ TOOLS: dict[str, dict] = {
         "parameters": {"type": "object", "properties": {}},
         "fn": tool_get_stats,
     },
+    "file_verdict": {
+        "description": (
+            "File a human verdict on a stored intelligence record. "
+            "Verdicts are append-only — multiple verdicts may exist per record."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "record_id": {"type": "string", "description": "Target IntelligenceRecord id"},
+                "verdict": {
+                    "type": "string",
+                    "enum": ["correct", "incorrect", "partial", "unclear"],
+                },
+                "reviewer": {"type": "string", "default": "anonymous"},
+                "notes": {"type": "string", "default": ""},
+            },
+            "required": ["record_id", "verdict"],
+        },
+        "fn": tool_file_verdict,
+    },
+    "get_verdicts": {
+        "description": "Return verdicts. With record_id, returns every verdict for that record.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "record_id": {"type": "string", "description": "Filter to a single record (optional)"},
+                "limit": {"type": "integer", "default": 20},
+            },
+        },
+        "fn": tool_get_verdicts,
+    },
+    "get_calibration": {
+        "description": (
+            "Produce a calibration drift report from the current intel + verdicts stores. "
+            "Descriptive only — never auto-applies tuning. Set include_proposals=true to "
+            "also return suggested adjustments."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "include_proposals": {"type": "boolean", "default": False},
+                "sample_floor": {"type": "integer", "default": 5},
+                "delta_floor": {"type": "number", "default": 0.15},
+            },
+        },
+        "fn": tool_get_calibration,
+    },
 }
 
 
@@ -288,7 +405,7 @@ def handle_initialize(request_id: Any, params: dict) -> dict:
     return _make_response(request_id, {
         "protocolVersion": "2024-11-05",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "spec1-mcp-server", "version": "0.3.0"},
+        "serverInfo": {"name": "spec1-mcp-server", "version": "0.4.0"},
     })
 
 
