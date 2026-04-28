@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from spec1_api import __version__
 from spec1_api.routers import (
     brief,
     calibration,
@@ -38,7 +39,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="SPEC-1 Intelligence API",
         description="Real-time OSINT intelligence engine API",
-        version="0.3.0",
+        version=__version__,
         lifespan=lifespan,
     )
 

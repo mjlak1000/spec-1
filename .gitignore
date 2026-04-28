@@ -32,6 +32,13 @@ htmlcov/
 *.jsonl
 *.log
 .DS_Store
+
+# Generated artifacts — briefs, historical outputs, logs
+# Write these to generated/ or a dedicated branch, not main
+generated/
+data/psyop_signals.jsonl
+
+# Generated brief and prompt markdown files — never committed to main
 briefs/
 workspace/
 .mcp.json

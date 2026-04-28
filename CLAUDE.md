@@ -124,6 +124,7 @@ spec-1/
 ├── CASE_STUDY.md
 ├── PORTFOLIO_SUMMARY.md
 ├── CLAUDE.md
+├── PORTFOLIO_SUMMARY.md     # High-level project overview for stakeholders
 └── README.md
 ```
 
@@ -239,6 +240,11 @@ SPEC1_LOG_LEVEL=INFO
 ANTHROPIC_API_KEY=sk-ant-...
 SPEC1_API_HOST=0.0.0.0
 SPEC1_API_PORT=8000
+SPEC1_CRON_HOUR=6
+SPEC1_CRON_MINUTE=0
+SPEC1_TIMEZONE=America/Los_Angeles
+SPEC1_FEED_TIMEOUT=15
+SPEC1_QUANT_ENABLED=false
 ```
 
 ## Running the System
@@ -261,6 +267,9 @@ PYTHONPATH=src python -m spec1_engine.tools.calibration_propose \
     --intel spec1_intelligence.jsonl \
     --verdicts verdicts.jsonl \
     --out-dir generated/
+
+# Workspace CLI (case management)
+python -m spec1_engine.workspace
 ```
 
 ## Testing
@@ -294,3 +303,69 @@ All test functions must be fully implemented — no `pass` stubs, no `pytest.ski
     how to fold them.
 13. PDF rendering runs as a subprocess (`spec1_engine.tools.pdf_render`) so the API/engine
     processes never import weasyprint or its native deps.
+
+## Governance & Agent Constraints
+
+### Frozen Core
+
+`src/spec1_engine/core/` is the frozen core. It contains canonical schemas,
+ID generation, logging utilities, and the prompt files under `core/prompts/`.
+
+**Rules:**
+- Agents may **import** from `core/` but may **not modify** it
+- Any change to `core/` requires explicit human approval and a semantic version bump
+- `core/prompts/*.md` are the authoritative source for all prompt text —
+  no inline prompt strings may be added elsewhere in the codebase
+
+### Semantic Versioning
+
+`pyproject.toml` version follows MAJOR.MINOR.PATCH:
+
+| Bump | When |
+|------|------|
+| MAJOR | Breaking change to `/core` contracts or schemas |
+| MINOR | New module, scorer, adapter, or prompt surface |
+| PATCH | Bug fix, CI, infra, test, docs |
+
+Every PR must declare its version bump type in the PR description.
+
+### Agent Write Surfaces
+
+Agents may freely modify:
+- `src/spec1_engine/signal/`
+- `src/spec1_engine/investigation/`
+- `src/spec1_engine/intelligence/`
+- `src/spec1_engine/briefing/` (except `templates.py` imports — edit `.md` files instead)
+- `src/spec1_engine/tools/`
+- `src/cls_osint/`, `src/cls_psyop/`, `src/cls_quant/`, `src/cls_leads/`
+- `src/spec1_api/`
+- `tests/`
+
+Agents must **NOT** modify without human approval:
+- `src/spec1_engine/core/` (any file)
+- `src/spec1_engine/core/prompts/` (any `.md` file)
+- `pyproject.toml` version field
+- `CLAUDE.md`
+- `.github/pull_request_template.md`
+
+### Branch Rules
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Human-curated stable releases only |
+| `dev` | Integration branch — merge agent branches here first |
+| `claude/*` or `agent/*` | Agent work — never merge directly to `main` |
+
+### Generated Artifacts
+
+Briefs, logs, and historical outputs must not be committed to `main`.
+Write them to `generated/` (gitignored) or a dedicated `generated` branch.
+The `briefs/` directory in the repo is legacy — new runs should use `generated/briefs/`.
+
+### PR Requirements
+
+Every PR must include (use `.github/pull_request_template.md`):
+1. Summary of changes
+2. Version bump type and justification
+3. Confirmation that `/core` was not modified (or justification if it was)
+4. Test status (`pytest` + `flake8` clean)
